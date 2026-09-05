@@ -4,37 +4,55 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MeterOps Pro - ระบบจัดการมิเตอร์อัจฉริยะ</title>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tesseract.js for OCR -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- Cropper.js for Image Rotation & Cropping -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Sarabun', sans-serif; background-color: #f1f5f9; }
-        .drop-zone { border: 2px dashed #3b82f6; background-color: #f8fafc; transition: all 0.25s ease-in-out; }
-        .drop-zone:hover, .drop-zone.dragover { border-color: #1d4ed8; background-color: #eff6ff; transform: scale(1.002); }
-        .meter-card { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05); }
+        .drop-zone { border: 2px dashed #3b82f6; background-color: #f8fafc; transition: all 0.2s ease-in-out; }
+        .drop-zone:hover, .drop-zone.dragover { border-color: #1d4ed8; background-color: #eff6ff; }
+        .meter-card { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07); }
+        
+        /* ปรับแต่งกรอบตัดภาพให้เป็นสีแดงตาม Requirement */
+        .cropper-view-box { outline: 3px solid #ef4444 !important; outline-color: rgba(239, 68, 68, 0.9) !important; }
+        .cropper-line { background-color: #ef4444 !important; }
+        .cropper-point { background-color: #ef4444 !important; }
+        
+        /* สไตล์ของ Range Slider */
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -8px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: #cbd5e1; border-radius: 3px; }
+        input[type=range]:focus { outline: none; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col text-slate-800">
 
+    <!-- Header -->
     <header class="bg-[#1e3a8a] text-white py-3.5 px-6 shadow-md">
         <div class="max-w-6xl mx-auto flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <div class="flex items-center text-2xl">
-                    <i class="fa-solid fa-faucet-drip text-sky-400"></i>
-                    <span class="text-slate-400 text-sm mx-1">/</span>
-                    <i class="fa-solid fa-bolt text-amber-400"></i>
-                </div>
+                <i class="fa-solid fa-faucet-drip text-sky-400 text-xl"></i>
+                <i class="fa-solid fa-bolt text-amber-400 text-xl"></i>
                 <h1 class="text-xl font-bold tracking-wide">MeterOps Pro</h1>
             </div>
             <div class="text-xs bg-blue-900/60 border border-blue-400/30 px-3 py-1 rounded-full text-blue-200">
-                Single-File App
+                v3.0 - Smart Align
             </div>
         </div>
     </header>
 
     <main class="flex-grow max-w-6xl w-full mx-auto px-4 py-7 space-y-7">
+        
+        <!-- Upload Section -->
         <section class="bg-white rounded-2xl p-6 shadow-sm">
             <div id="dropZone" class="drop-zone rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer text-center">
                 <div class="w-14 h-14 bg-blue-900 text-white rounded-full flex items-center justify-center mb-3 shadow-sm hover:scale-105 transition-transform">
@@ -46,6 +64,7 @@
             </div>
         </section>
 
+        <!-- Dynamic Cards Section -->
         <section id="uploadsSection" class="space-y-4">
             <div class="flex items-center justify-between">
                 <h2 class="text-lg font-bold text-slate-800">รายการประมวลผลปัจจุบัน</h2>
@@ -54,13 +73,11 @@
             <div id="cardsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
         </section>
 
+        <!-- Summary Table -->
         <section id="summarySection" class="space-y-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-2">
-                    <h2 class="text-lg font-bold text-slate-800">ตารางสรุปข้อมูลมิเตอร์ (เฟส 2)</h2>
-                    <span class="inline-flex items-center text-xs font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                        <i class="fa-solid fa-circle-check mr-1 text-[11px]"></i> สำเร็จ
-                    </span>
+                    <h2 class="text-lg font-bold text-slate-800">ตารางสรุปข้อมูลมิเตอร์</h2>
                 </div>
                 <div class="flex space-x-2">
                     <button onclick="exportCSV()" class="text-xs bg-slate-700 hover:bg-slate-800 text-white font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center">
@@ -77,28 +94,28 @@
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-100/90 text-slate-700 text-sm font-semibold border-b border-slate-200">
-                                <th class="px-6 py-3.5 w-1/3">หมายเลขห้อง</th>
-                                <th class="px-6 py-3.5 w-1/3 text-center">ภาพมิเตอร์ที่ครอบตัด</th>
-                                <th class="px-6 py-3.5 w-1/3 text-right">จำนวนเต็มที่อ่านได้ (OCR)</th>
+                                <th class="px-6 py-3.5">หมายเลขห้อง</th>
+                                <th class="px-6 py-3.5 text-center">ภาพที่ตัด (แนวนอน)</th>
+                                <th class="px-6 py-3.5 text-right">ค่าที่อ่านได้ (OCR)</th>
                             </tr>
                         </thead>
                         <tbody id="summaryTableBody" class="divide-y divide-slate-200 text-slate-800 text-sm">
                             <tr id="emptyRow" class="text-center text-slate-400 py-8">
-                                <td colspan="3" class="py-8">ยังไม่มีข้อมูลมิเตอร์ กรุณาอัปโหลดรูปภาพด้านบน</td>
+                                <td colspan="3" class="py-8">ยังไม่มีข้อมูลมิเตอร์</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </section>
+
     </main>
 
-    <footer class="bg-white border-t border-slate-200 py-4 px-6 text-xs text-slate-500 mt-auto">
-        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-            <div>© MeterOps Pro, LLC</div>
-        </div>
+    <footer class="bg-white border-t border-slate-200 py-4 px-6 text-xs text-slate-500 mt-auto text-center">
+        © MeterOps Pro - ระบบถูกออกแบบให้ปรับระนาบตัวเลขได้ 100%
     </footer>
 
+    <!-- App Logic -->
     <script>
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
@@ -109,7 +126,9 @@
 
         let fileCounter = 0;
         const records = {};
+        const croppers = {};
 
+        // Drag & Drop Handlers
         dropZone.addEventListener('click', () => fileInput.click());
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
@@ -133,156 +152,166 @@
             uploadCount.textContent = `${Object.keys(records).length + 1} รายการ`;
 
             const cardId = `meter-${Date.now()}-${index}`;
-            const fileNameOriginal = file.name;
-            const fileName = fileNameOriginal.toLowerCase();
+            const fileName = file.name.toLowerCase();
 
-            // ตรวจสอบประเภทมิเตอร์ (น้ำ หรือ ไฟ)
-            const isWater = fileName.includes('water') || fileName.includes('น้ำ') || (!fileName.includes('elec') && !fileName.includes('ไฟ') && index % 2 !== 0);
-            const meterTypeTitle = isWater ? `มิเตอร์น้ำ (ไฟล์ภาพที่ ${index})` : `มิเตอร์ไฟฟ้า (ไฟล์ภาพที่ ${index})`;
+            // ดึงหมายเลขห้องจากชื่อไฟล์ (ถ้าไม่มีใช้ค่าปริยาย)
+            const roomMatch = file.name.match(/^(\d+)/);
+            const initialRoom = roomMatch ? roomMatch[1] : "101";
+            const isWater = fileName.includes('water') || fileName.includes('น้ำ') || (!fileName.includes('elec') && index % 2 !== 0);
+            const meterTypeTitle = isWater ? `มิเตอร์น้ำ` : `มิเตอร์ไฟฟ้า`;
 
-            // 1. ดึงเลขห้องจากด้านหน้าสุดของชื่อไฟล์ (เช่น 101 จาก 101_xxxx.jpg)
-            const roomMatch = fileNameOriginal.match(/^(\d+)/);
-            const initialRoom = roomMatch ? roomMatch[1] : (isWater ? "101" : "102");
+            // บันทึกโครงสร้างข้อมูลเริ่มต้น
+            records[cardId] = { room: initialRoom, reading: "", imageSrc: "", isWater: isWater };
 
-            createCardUI(cardId, meterTypeTitle, initialRoom);
+            // สร้าง UI ของการ์ด
+            createCardUI(cardId, meterTypeTitle, initialRoom, file.name);
 
+            // โหลดภาพและตั้งค่า Cropper
             const rawDataUrl = await readFileAsDataURL(file);
-            const originalImg = await loadImage(rawDataUrl);
-
-            // 2. ครอบตัดรูปให้อ่านง่าย
-            const processedCanvas = autoAlignAndCropMeter(originalImg, isWater);
-            const processedImageURL = processedCanvas.toDataURL('image/jpeg', 0.92);
-
-            const previewImgElem = document.getElementById(`img-${cardId}`);
-            previewImgElem.src = processedImageURL;
-            previewImgElem.classList.remove('hidden');
-            document.getElementById(`spinner-${cardId}`).classList.add('hidden');
-
-            // 3. อ่านค่าด้วย OCR (เอาเฉพาะจำนวนเต็ม)
-            let extractedNumber = await runMeterOCR(processedCanvas, isWater);
+            const imgElement = document.getElementById(`img-${cardId}`);
+            imgElement.src = rawDataUrl;
             
-            // กรณีอ่านไม่ได้จริงๆ คืนค่า Default เพื่อให้ผู้ใช้คีย์เอง
-            if (!extractedNumber || extractedNumber.length === 0) {
-                extractedNumber = ""; 
-            }
-
-            document.getElementById(`reading-${cardId}`).value = extractedNumber;
-            document.getElementById(`status-badge-${cardId}`).innerHTML = `
-                <span class="inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                    <i class="fa-solid fa-circle-check mr-1 text-[11px]"></i> สำเร็จ
-                </span>`;
-
-            records[cardId] = {
-                room: initialRoom,
-                imageSrc: processedImageURL,
-                reading: extractedNumber,
-                isWater: isWater
-            };
-
-            renderSummaryTable();
+            initCropper(cardId, isWater);
         }
 
-        function autoAlignAndCropMeter(img, isWater) {
-            const tempCanvas = document.createElement('canvas');
-            const ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
-            const w = img.naturalWidth || img.width;
-            const h = img.naturalHeight || img.height;
+        function initCropper(cardId, isWater) {
+            const imgElement = document.getElementById(`img-${cardId}`);
+            
+            const cropper = new Cropper(imgElement, {
+                viewMode: 1,
+                dragMode: 'move',
+                autoCropArea: 0.5,
+                background: true,
+                ready: function () {
+                    // กำหนดขนาดกรอบครอปเริ่มต้นให้เป็นแนวนอน
+                    const containerData = cropper.getContainerData();
+                    const cropW = containerData.width * 0.45;
+                    const cropH = cropW * 0.35;
+                    cropper.setCropBoxData({
+                        left: (containerData.width - cropW) / 2,
+                        top: (containerData.height - cropH) / 2,
+                        width: cropW,
+                        height: cropH
+                    });
 
-            if (isWater) {
-                const targetDim = Math.min(w, h);
-                tempCanvas.width = targetDim; tempCanvas.height = targetDim;
-                ctx.save();
-                ctx.translate(targetDim / 2, targetDim / 2);
-                ctx.rotate((18 * Math.PI) / 180);
-                const sx = (w - targetDim) / 2; const sy = (h - targetDim) / 2;
-                ctx.drawImage(img, sx, sy, targetDim, targetDim, -targetDim / 2, -targetDim / 2, targetDim, targetDim);
-                ctx.restore();
-            } else {
-                const cropW = w * 0.72; const cropH = cropW * 0.95;
-                tempCanvas.width = cropW; tempCanvas.height = cropH;
-                const sx = (w - cropW) / 2; const sy = h * 0.15;
-                ctx.drawImage(img, sx, sy, cropW, Math.min(cropH, h - sy), 0, 0, cropW, cropH);
-            }
-            return tempCanvas;
+                    // ซ่อนสถานะ Loading
+                    document.getElementById(`spinner-${cardId}`).classList.add('hidden');
+                    
+                    // อ่านค่าครั้งแรก
+                    runOCRAndUpdate(cardId);
+                }
+            });
+
+            croppers[cardId] = cropper;
+
+            // เชื่อมแถบสไลเดอร์หมุนภาพ
+            const slider = document.getElementById(`slider-${cardId}`);
+            slider.addEventListener('input', (e) => {
+                const degree = parseInt(e.target.value);
+                cropper.rotateTo(degree);
+                document.getElementById(`deg-${cardId}`).innerText = `${degree}°`;
+            });
+            
+            // อ่านค่า OCR ใหม่เมื่อปล่อยเมาส์จากแถบสไลเดอร์ หรือเมื่อปรับขนาดกรอบแดงเสร็จ
+            slider.addEventListener('change', () => runOCRAndUpdate(cardId));
+            imgElement.addEventListener('cropend', () => runOCRAndUpdate(cardId));
         }
 
-        async function runMeterOCR(canvas, isWater) {
+        async function runOCRAndUpdate(cardId) {
+            const cropper = croppers[cardId];
+            if (!cropper) return;
+
+            const statusBadge = document.getElementById(`status-badge-${cardId}`);
+            statusBadge.innerHTML = `<span class="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full"><i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังอ่าน OCR...</span>`;
+
+            // ดึงภาพที่ถูกครอปและหมุนแล้ว
+            const croppedCanvas = cropper.getCroppedCanvas({
+                width: 400, // จำกัดขนาดให้ Tesseract ทำงานไวขึ้น
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+            });
+
+            const processedImageURL = croppedCanvas.toDataURL('image/jpeg', 0.9);
+            records[cardId].imageSrc = processedImageURL;
+
+            // ปรับสีขาวดำเพื่อให้อ่านง่ายขึ้น
+            const ctx = croppedCanvas.getContext('2d');
+            const imgData = ctx.getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
+            const d = imgData.data;
+            for (let i = 0; i < d.length; i += 4) {
+                const avg = (d[i] + d[i + 1] + d[i + 2]) / 3;
+                // ใช้ Threshold กลางๆ สำหรับกรอบสีแดง
+                const val = avg > 115 ? 255 : 0;
+                d[i] = d[i + 1] = d[i + 2] = val;
+            }
+            ctx.putImageData(imgData, 0, 0);
+
             try {
-                const subCanvas = document.createElement('canvas');
-                const subCtx = subCanvas.getContext('2d');
-                const cw = canvas.width; const ch = canvas.height;
-                let sx, sy, sw, sh;
-
-                // กำหนดกรอบให้ครอบคลุมเฉพาะหลักจำนวนเต็ม (หลีกเลี่ยงทศนิยมถ้ามี)
-                if (isWater) {
-                    // สำหรับมิเตอร์ Sanwa กรอบตัวเลขสีดำ 4 หลัก
-                    sx = cw * 0.28; sy = ch * 0.22; sw = cw * 0.44; sh = ch * 0.18;
-                } else {
-                    // สำหรับมิเตอร์ไฟ Mitsubishi กรอบตัวเลขสีดำ (ข้ามทศนิยมช่องสีขาว)
-                    sx = cw * 0.35; sy = ch * 0.26; sw = cw * 0.38; sh = ch * 0.16;
-                }
-
-                subCanvas.width = sw; subCanvas.height = sh;
-                subCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
-
-                // ปรับภาพขาวดำให้คอนทราสต์จัดเพื่อให้ Tesseract อ่านเลขชัดเจนที่สุด
-                const imgData = subCtx.getImageData(0, 0, sw, sh);
-                const d = imgData.data;
-                for (let i = 0; i < d.length; i += 4) {
-                    const avg = (d[i] + d[i + 1] + d[i + 2]) / 3;
-                    const threshold = isWater ? 115 : 100;
-                    const val = avg > threshold ? 255 : 0;
-                    d[i] = d[i + 1] = d[i + 2] = val;
-                }
-                subCtx.putImageData(imgData, 0, 0);
-
-                const { data: { text } } = await Tesseract.recognize(subCanvas, 'eng', {
+                // รัน Tesseract
+                const { data: { text } } = await Tesseract.recognize(croppedCanvas, 'eng', {
                     tessedit_char_whitelist: '0123456789'
                 });
-
-                // คัดเอาเฉพาะตัวเลขล้วน 0-9
-                const clean = text.replace(/[^0-9]/g, '').trim();
-                return clean;
+                
+                let extractedNumber = text.replace(/[^0-9]/g, '').trim();
+                
+                records[cardId].reading = extractedNumber;
+                document.getElementById(`reading-${cardId}`).value = extractedNumber;
+                
+                statusBadge.innerHTML = `<span class="text-xs text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full"><i class="fa-solid fa-circle-check mr-1"></i> สำเร็จ</span>`;
+                
+                renderSummaryTable();
             } catch (err) {
-                console.warn('OCR error:', err);
-                return '';
+                console.error(err);
+                statusBadge.innerHTML = `<span class="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ผิดพลาด</span>`;
             }
         }
 
-        function createCardUI(cardId, title, initialRoom) {
+        function createCardUI(cardId, title, initialRoom, fileName) {
             const card = document.createElement('div');
             card.id = cardId;
-            card.className = 'meter-card bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col transition-all';
+            card.className = 'meter-card bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col';
             card.innerHTML = `
-                <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-                    <span class="font-bold text-slate-800 text-sm">${title}</span>
-                    <div id="status-badge-${cardId}">
-                        <span class="inline-flex items-center text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                            <i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังปรับแต่ง...
-                        </span>
+                <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                    <div class="flex flex-col">
+                        <span class="font-bold text-slate-800 text-sm">${title}</span>
+                        <span class="text-[10px] text-slate-400 truncate max-w-[150px]">${fileName}</span>
                     </div>
+                    <div id="status-badge-${cardId}"></div>
                 </div>
-                <div class="p-4 bg-slate-50 flex items-center justify-center relative min-h-[260px] max-h-[320px] overflow-hidden">
-                    <div id="spinner-${cardId}" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 text-slate-400">
+                
+                <!-- พื้นที่จัดการภาพ (Cropper) -->
+                <div class="relative h-[250px] bg-slate-900 w-full overflow-hidden">
+                    <div id="spinner-${cardId}" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 z-10 text-slate-500">
                         <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-2 text-blue-600"></i>
-                        <span class="text-xs">กำลังหมุนและตัดภาพอัตโนมัติ...</span>
+                        <span class="text-xs">กำลังเตรียมภาพ...</span>
                     </div>
-                    <img id="img-${cardId}" src="" class="hidden max-h-[270px] w-auto object-contain rounded-xl shadow-md border border-slate-200/80">
+                    <img id="img-${cardId}" src="" class="block max-w-full">
                 </div>
-                <div class="p-4 bg-slate-100/70 border-t border-slate-200/70 space-y-2">
-                    <div class="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1">
-                        <span>OCR Preview (ตัวเลขจำนวนเต็ม)</span>
+
+                <!-- เครื่องมือควบคุมองศาภาพ -->
+                <div class="p-4 bg-white border-t border-slate-200 space-y-3">
+                    <div class="flex items-center justify-between text-xs text-slate-600 font-medium">
+                        <label><i class="fa-solid fa-rotate mr-1"></i> เลื่อนเพื่อปรับระนาบตัวเลขให้ตรง</label>
+                        <span id="deg-${cardId}" class="text-blue-600 font-bold bg-blue-50 px-2 rounded">0°</span>
                     </div>
-                    <div class="bg-white rounded-lg p-2.5 border border-slate-200 text-sm space-y-1.5 shadow-sm">
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-600">หมายเลขห้อง:</span>
+                    <input type="range" id="slider-${cardId}" min="-180" max="180" value="0" class="w-full">
+                </div>
+
+                <!-- ผลลัพธ์ OCR -->
+                <div class="p-4 bg-slate-50 border-t border-slate-200 space-y-2">
+                    <div class="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1">
+                        <span>ข้อมูลที่อ่านได้ (เฉพาะในกรอบแดง)</span>
+                    </div>
+                    <div class="flex space-x-3">
+                        <div class="flex-1 bg-white rounded-lg p-2 border border-slate-200 shadow-sm flex items-center justify-between">
+                            <span class="text-xs text-slate-500">ห้อง:</span>
                             <input type="text" id="room-${cardId}" value="${initialRoom}" oninput="updateRecord('${cardId}')"
-                                class="w-24 text-right font-bold text-slate-800 focus:text-blue-600 focus:outline-none border-b border-transparent focus:border-blue-500">
+                                class="w-16 text-right font-bold text-slate-800 focus:outline-none border-b border-transparent focus:border-blue-500">
                         </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-600">ค่าที่อ่านได้:</span>
+                        <div class="flex-1 bg-white rounded-lg p-2 border border-slate-200 shadow-sm flex items-center justify-between">
+                            <span class="text-xs text-slate-500">ค่า:</span>
                             <input type="text" id="reading-${cardId}" value="..." oninput="updateRecord('${cardId}')"
-                                class="w-32 text-right font-bold text-emerald-600 text-base focus:outline-none border-b border-transparent focus:border-emerald-500 tracking-wider">
+                                class="w-20 text-right font-bold text-emerald-600 text-lg focus:outline-none border-b border-transparent focus:border-emerald-500">
                         </div>
                     </div>
                 </div>
@@ -303,25 +332,21 @@
             const cardIds = Object.keys(records);
 
             if (cardIds.length === 0) {
-                summaryTableBody.innerHTML = `
-                    <tr id="emptyRow" class="text-center text-slate-400 py-8">
-                        <td colspan="3" class="py-8">ยังไม่มีข้อมูลมิเตอร์ กรุณาอัปโหลดรูปภาพด้านบน</td>
-                    </tr>`;
+                summaryTableBody.innerHTML = `<tr id="emptyRow" class="text-center text-slate-400 py-8"><td colspan="3" class="py-8">ยังไม่มีข้อมูล</td></tr>`;
                 return;
             }
 
             cardIds.forEach((id) => {
                 const item = records[id];
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50/80 transition-colors";
+                tr.className = "hover:bg-slate-50 transition-colors";
                 tr.innerHTML = `
                     <td class="px-6 py-4 font-semibold text-slate-900">${item.room}</td>
                     <td class="px-6 py-4 text-center">
-                        <img src="${item.imageSrc}" alt="มิเตอร์ห้อง ${item.room}"
-                            class="h-16 w-16 object-cover inline-block rounded-lg shadow-sm border border-slate-200">
+                        ${item.imageSrc ? `<img src="${item.imageSrc}" class="h-10 w-auto object-cover inline-block rounded shadow-sm border border-slate-200">` : '-'}
                     </td>
                     <td class="px-6 py-4 text-right font-bold text-emerald-600 text-lg tracking-wider">
-                        ${item.reading || '<span class="text-red-400 text-sm">ตรวจสอบด้วยตนเอง</span>'}
+                        ${item.reading || '<span class="text-red-400 text-xs font-normal">รอระบุ...</span>'}
                     </td>
                 `;
                 summaryTableBody.appendChild(tr);
@@ -336,28 +361,20 @@
             });
         }
 
-        function loadImage(src) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.src = src;
-            });
-        }
-
         window.exportCSV = function() {
             const keys = Object.keys(records);
-            if (keys.length === 0) return alert('ยังไม่มีข้อมูลสำหรับส่งออก');
+            if (keys.length === 0) return alert('ไม่มีข้อมูล');
             let csvContent = "\uFEFFหมายเลขห้อง,ค่าที่อ่านได้\n";
             keys.forEach(k => { csvContent += `"${records[k].room}","${records[k].reading}"\n`; });
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = `MeterOps_Report_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.href = url; a.download = `MeterReport_${new Date().toISOString().slice(0, 10)}.csv`;
             a.click(); URL.revokeObjectURL(url);
         };
 
         window.clearAllData = function() {
-            if (confirm('คุณต้องการล้างข้อมูลทั้งหมดใช่หรือไม่?')) {
+            if (confirm('ยืนยันล้างข้อมูล?')) {
                 for (let k in records) delete records[k];
                 cardsGrid.innerHTML = '';
                 uploadCount.classList.add('hidden');
