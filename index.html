@@ -3,30 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MeterOps Pro - ระบบจัดการมิเตอร์อัจฉริยะ (ภาษาไทย)</title>
+    <title>MeterOps Pro - ระบบจัดการมิเตอร์อัจฉริยะ</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
-        body {
-            font-family: 'Sarabun', sans-serif;
-            background-color: #f1f5f9;
-        }
-        .drop-zone {
-            border: 2px dashed #3b82f6;
-            background-color: #f8fafc;
-            transition: all 0.25s ease-in-out;
-        }
-        .drop-zone:hover, .drop-zone.dragover {
-            border-color: #1d4ed8;
-            background-color: #eff6ff;
-            transform: scale(1.002);
-        }
-        .meter-card {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-        }
+        body { font-family: 'Sarabun', sans-serif; background-color: #f1f5f9; }
+        .drop-zone { border: 2px dashed #3b82f6; background-color: #f8fafc; transition: all 0.25s ease-in-out; }
+        .drop-zone:hover, .drop-zone.dragover { border-color: #1d4ed8; background-color: #eff6ff; transform: scale(1.002); }
+        .meter-card { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05); }
     </style>
 </head>
 <body class="min-h-screen flex flex-col text-slate-800">
@@ -39,7 +26,7 @@
                     <span class="text-slate-400 text-sm mx-1">/</span>
                     <i class="fa-solid fa-bolt text-amber-400"></i>
                 </div>
-                <h1 class="text-xl font-bold tracking-wide">MeterOps Pro <span class="text-sm font-normal text-slate-200">- ระบบจัดการมิเตอร์อัจฉริยะ (ภาษาไทย)</span></h1>
+                <h1 class="text-xl font-bold tracking-wide">MeterOps Pro</h1>
             </div>
             <div class="text-xs bg-blue-900/60 border border-blue-400/30 px-3 py-1 rounded-full text-blue-200">
                 Single-File App
@@ -48,27 +35,23 @@
     </header>
 
     <main class="flex-grow max-w-6xl w-full mx-auto px-4 py-7 space-y-7">
-
         <section class="bg-white rounded-2xl p-6 shadow-sm">
             <div id="dropZone" class="drop-zone rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer text-center">
                 <div class="w-14 h-14 bg-blue-900 text-white rounded-full flex items-center justify-center mb-3 shadow-sm hover:scale-105 transition-transform">
                     <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
                 </div>
-                <h2 class="text-lg font-bold text-slate-800">Drag & Drop Upload Area</h2>
-                <p class="text-sm text-slate-600 mt-1">ลากไฟล์ภาพมิเตอร์ (น้ำ/ไฟฟ้า) มาที่นี่เพื่ออัปโหลด (รองรับหลายไฟล์)</p>
-                <p class="text-xs text-slate-400 mt-1">ระบบจะตรวจจับ หมุนภาพให้ตั้งตรง และครอบตัด (Auto-Crop) เฉพาะจุดสำคัญอัตโนมัติ</p>
+                <h2 class="text-lg font-bold text-slate-800">อัปโหลดรูปภาพมิเตอร์</h2>
+                <p class="text-sm text-slate-600 mt-1">ตั้งชื่อไฟล์เช่น 101_(2026-09-03)_water.jpg ระบบจะดึงเลขห้อง 101 อัตโนมัติ</p>
                 <input type="file" id="fileInput" class="hidden" multiple accept="image/*">
             </div>
         </section>
 
         <section id="uploadsSection" class="space-y-4">
             <div class="flex items-center justify-between">
-                <h2 class="text-lg font-bold text-slate-800">Current Uploads</h2>
+                <h2 class="text-lg font-bold text-slate-800">รายการประมวลผลปัจจุบัน</h2>
                 <span id="uploadCount" class="text-xs font-semibold bg-slate-200 text-slate-700 px-2.5 py-1 rounded-full hidden">0 รายการ</span>
             </div>
-
-            <div id="cardsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                </div>
+            <div id="cardsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
         </section>
 
         <section id="summarySection" class="space-y-4">
@@ -94,9 +77,9 @@
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-100/90 text-slate-700 text-sm font-semibold border-b border-slate-200">
-                                <th class="px-6 py-3.5 w-1/3">หมายเลขห้อง (Room Number)</th>
-                                <th class="px-6 py-3.5 w-1/3 text-center">ภาพมิเตอร์ (Meter Image)</th>
-                                <th class="px-6 py-3.5 w-1/3 text-right">ค่าที่อ่านได้ (Meter Reading)</th>
+                                <th class="px-6 py-3.5 w-1/3">หมายเลขห้อง</th>
+                                <th class="px-6 py-3.5 w-1/3 text-center">ภาพมิเตอร์ที่ครอบตัด</th>
+                                <th class="px-6 py-3.5 w-1/3 text-right">จำนวนเต็มที่อ่านได้ (OCR)</th>
                             </tr>
                         </thead>
                         <tbody id="summaryTableBody" class="divide-y divide-slate-200 text-slate-800 text-sm">
@@ -108,16 +91,11 @@
                 </div>
             </div>
         </section>
-
     </main>
 
     <footer class="bg-white border-t border-slate-200 py-4 px-6 text-xs text-slate-500 mt-auto">
         <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-            <div>© MeterOps Pro, LLC - พัฒนาโดยผู้เชี่ยวชาญ 10 ปี</div>
-            <div class="flex space-x-4 text-slate-600 font-medium">
-                <a href="javascript:void(0)" onclick="alert('คำแนะนำ: ตั้งชื่อไฟล์ภาพเช่น 101_water.jpg หรือ 102_elec.jpg เพื่อให้ระบบดึงหมายเลขห้องอัตโนมัติ')" class="hover:underline">ช่วยเหลือ</a>
-                <a href="javascript:void(0)" onclick="alert('เวอร์ชัน: 2.1 Web App Client-side Pipeline')" class="hover:underline">ตั้งค่า</a>
-            </div>
+            <div>© MeterOps Pro, LLC</div>
         </div>
     </footer>
 
@@ -132,20 +110,17 @@
         let fileCounter = 0;
         const records = {};
 
-        // Drag & Drop Setup
         dropZone.addEventListener('click', () => fileInput.click());
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
         dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
+            e.preventDefault(); dropZone.classList.remove('dragover');
             handleUploadedFiles(e.dataTransfer.files);
         });
         fileInput.addEventListener('change', (e) => handleUploadedFiles(e.target.files));
 
         function handleUploadedFiles(files) {
             if (!files || files.length === 0) return;
-
             Array.from(files).forEach((file) => {
                 fileCounter++;
                 processSingleImage(file, fileCounter);
@@ -153,146 +128,111 @@
             fileInput.value = '';
         }
 
-        // Processing Pipeline for each image
         async function processSingleImage(file, index) {
             uploadCount.classList.remove('hidden');
             uploadCount.textContent = `${Object.keys(records).length + 1} รายการ`;
 
             const cardId = `meter-${Date.now()}-${index}`;
-            const fileName = file.name.toLowerCase();
+            const fileNameOriginal = file.name;
+            const fileName = fileNameOriginal.toLowerCase();
 
-            // 1. Identify meter type
+            // ตรวจสอบประเภทมิเตอร์ (น้ำ หรือ ไฟ)
             const isWater = fileName.includes('water') || fileName.includes('น้ำ') || (!fileName.includes('elec') && !fileName.includes('ไฟ') && index % 2 !== 0);
-            const meterTypeTitle = isWater ? `มิเตอร์น้ำ (ภาพที่ ${index})` : `มิเตอร์ไฟฟ้า (ภาพที่ ${index})`;
+            const meterTypeTitle = isWater ? `มิเตอร์น้ำ (ไฟล์ภาพที่ ${index})` : `มิเตอร์ไฟฟ้า (ไฟล์ภาพที่ ${index})`;
 
-            // 2. Extract Room Number (from file name or fallback)
-            const roomMatch = fileName.match(/\b\d{2,4}\b/) || fileName.match(/\d+/);
-            const initialRoom = roomMatch ? roomMatch[0] : (isWater ? "101" : "102");
+            // 1. ดึงเลขห้องจากด้านหน้าสุดของชื่อไฟล์ (เช่น 101 จาก 101_xxxx.jpg)
+            const roomMatch = fileNameOriginal.match(/^(\d+)/);
+            const initialRoom = roomMatch ? roomMatch[1] : (isWater ? "101" : "102");
 
-            // 3. Create Card UI skeleton
             createCardUI(cardId, meterTypeTitle, initialRoom);
 
-            // 4. Load Image into Canvas for Auto-Orient & Auto-Crop
             const rawDataUrl = await readFileAsDataURL(file);
             const originalImg = await loadImage(rawDataUrl);
 
-            // Perform Smart Auto-Rotate & Auto-Crop
+            // 2. ครอบตัดรูปให้อ่านง่าย
             const processedCanvas = autoAlignAndCropMeter(originalImg, isWater);
             const processedImageURL = processedCanvas.toDataURL('image/jpeg', 0.92);
 
-            // Update Card Preview
             const previewImgElem = document.getElementById(`img-${cardId}`);
             previewImgElem.src = processedImageURL;
             previewImgElem.classList.remove('hidden');
             document.getElementById(`spinner-${cardId}`).classList.add('hidden');
 
-            // 5. Perform In-Browser OCR using Tesseract.js with preprocessing
+            // 3. อ่านค่าด้วย OCR (เอาเฉพาะจำนวนเต็ม)
             let extractedNumber = await runMeterOCR(processedCanvas, isWater);
-
-            // Fallback heuristics if OCR is imperfect on low-res mechanical counters
-            if (!extractedNumber || extractedNumber.length < 3) {
-                extractedNumber = isWater ? "0273" : "2722";
+            
+            // กรณีอ่านไม่ได้จริงๆ คืนค่า Default เพื่อให้ผู้ใช้คีย์เอง
+            if (!extractedNumber || extractedNumber.length === 0) {
+                extractedNumber = ""; 
             }
 
-            // Update UI card inputs
             document.getElementById(`reading-${cardId}`).value = extractedNumber;
             document.getElementById(`status-badge-${cardId}`).innerHTML = `
                 <span class="inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
                     <i class="fa-solid fa-circle-check mr-1 text-[11px]"></i> สำเร็จ
                 </span>`;
 
-            // 6. Record and Add/Update Table Row
             records[cardId] = {
                 room: initialRoom,
                 imageSrc: processedImageURL,
                 reading: extractedNumber,
-                canvas: processedCanvas,
                 isWater: isWater
             };
 
             renderSummaryTable();
         }
 
-        // Smart Auto-Align & Crop Algorithm
         function autoAlignAndCropMeter(img, isWater) {
             const tempCanvas = document.createElement('canvas');
             const ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
-
             const w = img.naturalWidth || img.width;
             const h = img.naturalHeight || img.height;
 
             if (isWater) {
-                // Water Meter: In typical tilted shots, rotate by ~18-20 deg to make counter level
-                // and crop to central dial
                 const targetDim = Math.min(w, h);
-                tempCanvas.width = targetDim;
-                tempCanvas.height = targetDim;
-
+                tempCanvas.width = targetDim; tempCanvas.height = targetDim;
                 ctx.save();
                 ctx.translate(targetDim / 2, targetDim / 2);
-                // Auto-level rotation angle (compensate standard angle)
                 ctx.rotate((18 * Math.PI) / 180);
-
-                // Center crop
-                const sx = (w - targetDim) / 2;
-                const sy = (h - targetDim) / 2;
+                const sx = (w - targetDim) / 2; const sy = (h - targetDim) / 2;
                 ctx.drawImage(img, sx, sy, targetDim, targetDim, -targetDim / 2, -targetDim / 2, targetDim, targetDim);
                 ctx.restore();
             } else {
-                // Electric Meter: Mitsubishi rectangular counter is upright in the upper-middle
-                const cropW = w * 0.72;
-                const cropH = cropW * 0.95;
-                tempCanvas.width = cropW;
-                tempCanvas.height = cropH;
-
-                const sx = (w - cropW) / 2;
-                const sy = h * 0.15; // Crop focus around the dial & window
-
+                const cropW = w * 0.72; const cropH = cropW * 0.95;
+                tempCanvas.width = cropW; tempCanvas.height = cropH;
+                const sx = (w - cropW) / 2; const sy = h * 0.15;
                 ctx.drawImage(img, sx, sy, cropW, Math.min(cropH, h - sy), 0, 0, cropW, cropH);
             }
-
             return tempCanvas;
         }
 
-        // Tesseract OCR Pipeline
         async function runMeterOCR(canvas, isWater) {
             try {
-                // Create a sub-canvas focused on the digit box area
                 const subCanvas = document.createElement('canvas');
                 const subCtx = subCanvas.getContext('2d');
-
-                const cw = canvas.width;
-                const ch = canvas.height;
-
+                const cw = canvas.width; const ch = canvas.height;
                 let sx, sy, sw, sh;
+
+                // กำหนดกรอบให้ครอบคลุมเฉพาะหลักจำนวนเต็ม (หลีกเลี่ยงทศนิยมถ้ามี)
                 if (isWater) {
-                    // Water meter counter box is in the upper half
-                    sx = cw * 0.28;
-                    sy = ch * 0.22;
-                    sw = cw * 0.44;
-                    sh = ch * 0.18;
+                    // สำหรับมิเตอร์ Sanwa กรอบตัวเลขสีดำ 4 หลัก
+                    sx = cw * 0.28; sy = ch * 0.22; sw = cw * 0.44; sh = ch * 0.18;
                 } else {
-                    // Electric meter counter digits (black box with white text)
-                    sx = cw * 0.35;
-                    sy = ch * 0.26;
-                    sw = cw * 0.38;
-                    sh = ch * 0.16;
+                    // สำหรับมิเตอร์ไฟ Mitsubishi กรอบตัวเลขสีดำ (ข้ามทศนิยมช่องสีขาว)
+                    sx = cw * 0.35; sy = ch * 0.26; sw = cw * 0.38; sh = ch * 0.16;
                 }
 
-                subCanvas.width = sw;
-                subCanvas.height = sh;
+                subCanvas.width = sw; subCanvas.height = sh;
                 subCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
 
-                // High-contrast B&W Threshold preprocessing for OCR
+                // ปรับภาพขาวดำให้คอนทราสต์จัดเพื่อให้ Tesseract อ่านเลขชัดเจนที่สุด
                 const imgData = subCtx.getImageData(0, 0, sw, sh);
                 const d = imgData.data;
                 for (let i = 0; i < d.length; i += 4) {
                     const avg = (d[i] + d[i + 1] + d[i + 2]) / 3;
                     const threshold = isWater ? 115 : 100;
                     const val = avg > threshold ? 255 : 0;
-                    d[i] = val;
-                    d[i + 1] = val;
-                    d[i + 2] = val;
+                    d[i] = d[i + 1] = d[i + 2] = val;
                 }
                 subCtx.putImageData(imgData, 0, 0);
 
@@ -300,15 +240,15 @@
                     tessedit_char_whitelist: '0123456789'
                 });
 
+                // คัดเอาเฉพาะตัวเลขล้วน 0-9
                 const clean = text.replace(/[^0-9]/g, '').trim();
                 return clean;
             } catch (err) {
-                console.warn('OCR error, using default pattern:', err);
+                console.warn('OCR error:', err);
                 return '';
             }
         }
 
-        // Create Card UI Component
         function createCardUI(cardId, title, initialRoom) {
             const card = document.createElement('div');
             card.id = cardId;
@@ -322,7 +262,6 @@
                         </span>
                     </div>
                 </div>
-
                 <div class="p-4 bg-slate-50 flex items-center justify-center relative min-h-[260px] max-h-[320px] overflow-hidden">
                     <div id="spinner-${cardId}" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 text-slate-400">
                         <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-2 text-blue-600"></i>
@@ -330,13 +269,9 @@
                     </div>
                     <img id="img-${cardId}" src="" class="hidden max-h-[270px] w-auto object-contain rounded-xl shadow-md border border-slate-200/80">
                 </div>
-
                 <div class="p-4 bg-slate-100/70 border-t border-slate-200/70 space-y-2">
                     <div class="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1">
-                        <span>OCR Preview</span>
-                        <span class="text-slate-600 flex items-center">
-                            <i class="fa-solid fa-gear mr-1 text-[11px] text-slate-400"></i> ปรับอัตโนมัติ (ตั้งตรง/ครอป)
-                        </span>
+                        <span>OCR Preview (ตัวเลขจำนวนเต็ม)</span>
                     </div>
                     <div class="bg-white rounded-lg p-2.5 border border-slate-200 text-sm space-y-1.5 shadow-sm">
                         <div class="flex items-center justify-between">
@@ -355,7 +290,6 @@
             cardsGrid.appendChild(card);
         }
 
-        // Update Record from manual Card input
         window.updateRecord = function(cardId) {
             if (!records[cardId]) return;
             records[cardId].room = document.getElementById(`room-${cardId}`).value;
@@ -363,10 +297,8 @@
             renderSummaryTable();
         };
 
-        // Render Summary Table (Phase 2)
         function renderSummaryTable() {
             if (emptyRow) emptyRow.remove();
-
             summaryTableBody.innerHTML = '';
             const cardIds = Object.keys(records);
 
@@ -388,13 +320,14 @@
                         <img src="${item.imageSrc}" alt="มิเตอร์ห้อง ${item.room}"
                             class="h-16 w-16 object-cover inline-block rounded-lg shadow-sm border border-slate-200">
                     </td>
-                    <td class="px-6 py-4 text-right font-bold text-emerald-600 text-lg tracking-wider">${item.reading}</td>
+                    <td class="px-6 py-4 text-right font-bold text-emerald-600 text-lg tracking-wider">
+                        ${item.reading || '<span class="text-red-400 text-sm">ตรวจสอบด้วยตนเอง</span>'}
+                    </td>
                 `;
                 summaryTableBody.appendChild(tr);
             });
         }
 
-        // Helpers
         function readFileAsDataURL(file) {
             return new Promise((resolve) => {
                 const r = new FileReader();
@@ -411,29 +344,18 @@
             });
         }
 
-        // Export to CSV
         window.exportCSV = function() {
             const keys = Object.keys(records);
-            if (keys.length === 0) {
-                alert('ยังไม่มีข้อมูลสำหรับส่งออก');
-                return;
-            }
-
+            if (keys.length === 0) return alert('ยังไม่มีข้อมูลสำหรับส่งออก');
             let csvContent = "\uFEFFหมายเลขห้อง,ค่าที่อ่านได้\n";
-            keys.forEach(k => {
-                csvContent += `"${records[k].room}","${records[k].reading}"\n`;
-            });
-
+            keys.forEach(k => { csvContent += `"${records[k].room}","${records[k].reading}"\n`; });
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `MeterOps_Report_${new Date().toISOString().slice(0, 10)}.csv`;
-            a.click();
-            URL.revokeObjectURL(url);
+            a.href = url; a.download = `MeterOps_Report_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click(); URL.revokeObjectURL(url);
         };
 
-        // Clear All Data
         window.clearAllData = function() {
             if (confirm('คุณต้องการล้างข้อมูลทั้งหมดใช่หรือไม่?')) {
                 for (let k in records) delete records[k];
