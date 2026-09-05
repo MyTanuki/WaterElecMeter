@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeterOps Pro - ระบบจัดการมิเตอร์อัจฉริยะ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&display=swap');
+        body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; }
+        .drop-zone { border: 2px dashed #9ca3af; transition: all 0.3s ease; }
+        .drop-zone.dragover { border-color: #3b82f6; background-color: #eff6ff; }
+        .cropper-container { max-height: 300px; width: 100%; }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <header class="bg-blue-800 text-white shadow-md">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-faucet-drip text-2xl text-blue-300"></i>
+                <i class="fa-solid fa-bolt text-2xl text-yellow-400"></i>
+                <h1 class="text-xl font-semibold">MeterOps Pro</h1>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+        <section class="bg-white rounded-xl shadow-sm p-6">
+            <div id="dropZone" class="drop-zone rounded-lg p-10 flex flex-col items-center justify-center cursor-pointer bg-gray-50 hover:bg-gray-100">
+                <i class="fa-solid fa-cloud-arrow-up text-5xl text-blue-500 mb-4"></i>
+                <p class="text-lg font-medium text-gray-700">ลากไฟล์ภาพมิเตอร์มาวางที่นี่ หรือคลิกเพื่ออัปโหลด</p>
+                <p class="text-sm text-gray-500 mt-2">รองรับหลายไฟล์พร้อมกัน (JPG, PNG)</p>
+                <input type="file" id="fileInput" class="hidden" multiple accept="image/*">
+            </div>
+        </section>
+
+        <section id="processingSection" class="hidden">
+            <h2 class="text-xl font-semibold mb-4 border-l-4 border-blue-500 pl-3">กำลังดำเนินการ (ปรับแต่งและหมุนภาพ)</h2>
+            <div id="imageGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                </div>
+        </section>
+
+        <section id="resultSection" class="hidden">
+            <h2 class="text-xl font-semibold mb-4 border-l-4 border-green-500 pl-3">สรุปข้อมูลมิเตอร์ (ตารางผลลัพธ์)</h2>
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-100 text-gray-700">
+                        <tr>
+                            <th class="px-6 py-4 border-b">หมายเลขห้อง</th>
+                            <th class="px-6 py-4 border-b">ภาพมิเตอร์ที่ตัดแล้ว</th>
+                            <th class="px-6 py-4 border-b">ตัวเลขที่อ่านได้ (OCR)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultTableBody" class="divide-y divide-gray-200">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const imageGrid = document.getElementById('imageGrid');
+        const processingSection = document.getElementById('processingSection');
+        const resultSection = document.getElementById('resultSection');
+        const resultTableBody = document.getElementById('resultTableBody');
+
+        // เก็บ instance ของ Cropper
+        const croppers = [];
+
+        // --- Drag & Drop Logic ---
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        function handleFiles(files) {
+            if(files.length > 0) processingSection.classList.remove('hidden');
+            
+            Array.from(files).forEach((file, index) => {
+                // พยายามดึงหมายเลขห้องจากชื่อไฟล์ (ดึงกลุ่มตัวเลข)
+                const roomMatch = file.name.match(/\d{2,4}/);
+                const roomNumber = roomMatch ? roomMatch[0] : `Unknown-${index}`;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    createProcessingCard(e.target.result, roomNumber, file.name);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function createProcessingCard(imageSrc, roomNumber, fileName) {
+            const cardId = `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-xl shadow-sm p-4 flex flex-col';
+            card.innerHTML = `
+                <div class="flex justify-between items-center mb-3">
+                    <span class="font-medium text-gray-700 bg-gray-100 px-3 py-1 rounded-full text-sm">
+                        ห้อง: <input type="text" value="${roomNumber}" id="room-${cardId}" class="bg-transparent w-16 outline-none font-bold text-blue-600">
+                    </span>
+                    <div class="space-x-2">
+                        <button onclick="rotateCropper('${cardId}', -90)" class="text-gray-500 hover:text-blue-500" title="หมุนซ้าย"><i class="fa-solid fa-rotate-left"></i></button>
+                        <button onclick="rotateCropper('${cardId}', 90)" class="text-gray-500 hover:text-blue-500" title="หมุนขวา"><i class="fa-solid fa-rotate-right"></i></button>
+                    </div>
+                </div>
+                <div class="cropper-container bg-gray-900 rounded-lg overflow-hidden flex-grow mb-4">
+                    <img id="img-${cardId}" src="${imageSrc}" class="max-w-full hidden">
+                </div>
+                <button onclick="processMeterReading('${cardId}')" id="btn-${cardId}" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors flex justify-center items-center">
+                    <i class="fa-solid fa-microchip mr-2"></i> อ่านค่ามิเตอร์ (OCR)
+                </button>
+            `;
+            
+            imageGrid.appendChild(card);
+
+            // Initialize Cropper.js
+            const imageElement = document.getElementById(`img-${cardId}`);
+            imageElement.classList.remove('hidden');
+            const cropper = new Cropper(imageElement, {
+                viewMode: 2,
+                dragMode: 'move',
+                autoCropArea: 0.5,
+                restore: false,
+                guides: true,
+                center: true,
+                highlight: false,
+                cropBoxMovable: true,
+                cropBoxResizable: true,
+                toggleDragModeOnDblclick: false,
+            });
+
+            croppers[cardId] = cropper;
+        }
+
+        // ฟังชันหมุนภาพ
+        window.rotateCropper = function(cardId, degree) {
+            if (croppers[cardId]) {
+                croppers[cardId].rotate(degree);
+            }
+        };
+
+        // --- OCR Logic (Phase 2) ---
+        window.processMeterReading = async function(cardId) {
+            const btn = document.getElementById(`btn-${cardId}`);
+            const roomNumber = document.getElementById(`room-${cardId}`).value;
+            const cropper = croppers[cardId];
+
+            if(!cropper) return;
+
+            // เปลี่ยนสถานะปุ่ม
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> กำลังอ่านค่า...`;
+            btn.classList.replace('bg-blue-600', 'bg-gray-400');
+
+            // แสดง Result Section
+            resultSection.classList.remove('hidden');
+
+            // 1. ดึงภาพที่ผู้ใช้ปรับแต่งและครอปแล้ว
+            const croppedCanvas = cropper.getCroppedCanvas();
+            const croppedImageURL = croppedCanvas.toDataURL('image/jpeg');
+
+            try {
+                // 2. ส่งภาพเข้า Tesseract.js
+                // กำหนด whitelist ให้สนใจเฉพาะตัวเลขเพื่อเพิ่มความแม่นยำสำหรับมิเตอร์
+                const result = await Tesseract.recognize(croppedImageURL, 'eng', {
+                    logger: m => console.log(m),
+                    tessedit_char_whitelist: '0123456789' 
+                });
+
+                const readText = result.data.text.trim();
+
+                // 3. นำข้อมูลลงตาราง
+                addResultToTable(roomNumber, croppedImageURL, readText || 'อ่านไม่ออก');
+                
+                // อัปเดตปุ่มกลับสู่ปกติ
+                btn.innerHTML = `<i class="fa-solid fa-check mr-2"></i> อ่านค่าสำเร็จ`;
+                btn.classList.replace('bg-gray-400', 'bg-green-500');
+
+            } catch (error) {
+                console.error("OCR Error:", error);
+                btn.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-2"></i> เกิดข้อผิดพลาด`;
+                btn.classList.replace('bg-gray-400', 'bg-red-500');
+            }
+        };
+
+        function addResultToTable(room, imageSrc, text) {
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-gray-50 transition-colors";
+            tr.innerHTML = `
+                <td class="px-6 py-4 border-b font-medium text-gray-900">${room}</td>
+                <td class="px-6 py-4 border-b">
+                    <img src="${imageSrc}" alt="Cropped Meter" class="h-16 w-auto object-cover rounded shadow-sm border border-gray-200">
+                </td>
+                <td class="px-6 py-4 border-b text-xl font-bold text-blue-700 tracking-wider">${text}</td>
+            `;
+            // แทรกไว้ด้านบนสุดของตาราง
+            resultTableBody.insertBefore(tr, resultTableBody.firstChild);
+        }
+    </script>
+</body>
+</html>
