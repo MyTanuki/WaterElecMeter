@@ -4,14 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MeterOps Pro - ระบบจัดการมิเตอร์อัจฉริยะ</title>
-    
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Cropper.js for Image Rotation & Cropping -->
+    <!-- Cropper.js for Image Rotation & Cropping (manual fallback) -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <!-- OpenCV.js: auto-deskew + auto-crop (see meter-vision.js below). Large file, load early & async. -->
+    <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
@@ -19,12 +21,12 @@
         .drop-zone { border: 2px dashed #3b82f6; background-color: #f8fafc; transition: all 0.2s ease-in-out; }
         .drop-zone:hover, .drop-zone.dragover { border-color: #1d4ed8; background-color: #eff6ff; }
         .meter-card { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07); }
-        
+
         /* ปรับแต่งกรอบตัดภาพให้เป็นสีแดงตาม Requirement */
         .cropper-view-box { outline: 3px solid #ef4444 !important; outline-color: rgba(239, 68, 68, 0.9) !important; }
         .cropper-line { background-color: #ef4444 !important; }
         .cropper-point { background-color: #ef4444 !important; }
-        
+
         /* สไตล์ของ Range Slider */
         input[type=range] { -webkit-appearance: none; background: transparent; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -8px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
@@ -44,9 +46,9 @@
             </div>
             <div class="flex items-center space-x-2">
                 <span class="text-xs bg-blue-900/60 border border-blue-400/30 px-3 py-1 rounded-full text-blue-200">
-                    v4.0 - Cloud Vision
+                    v5.0 - On-Device Matching
                 </span>
-                <button id="settingsBtn" title="ตั้งค่า Cloud Vision Backend" class="w-8 h-8 flex items-center justify-center rounded-full bg-blue-900/60 border border-blue-400/30 text-blue-200 hover:bg-blue-800 transition-colors">
+                <button id="settingsBtn" title="ตั้งค่าการอ่านค่ามิเตอร์" class="w-8 h-8 flex items-center justify-center rounded-full bg-blue-900/60 border border-blue-400/30 text-blue-200 hover:bg-blue-800 transition-colors">
                     <i class="fa-solid fa-gear"></i>
                 </button>
             </div>
@@ -57,19 +59,31 @@
     <div id="settingsModal" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
             <div class="flex items-center justify-between">
-                <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-cloud mr-2 text-blue-600"></i>ตั้งค่า Cloud Vision Backend</h3>
+                <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-sliders mr-2 text-blue-600"></i>ตั้งค่าการอ่านค่ามิเตอร์</h3>
                 <button onclick="closeSettings()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <p class="text-xs text-slate-500">ระบบอ่านค่า OCR ผ่าน Google Apps Script + Cloud Vision API ต้องนำ URL ของ Web App ที่ deploy แล้ว และ Shared Secret มาใส่ไว้ที่นี่ก่อนใช้งาน (บันทึกไว้ในเบราว์เซอร์นี้เท่านั้น)</p>
-            <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-600">Apps Script Web App URL</label>
-                <input type="text" id="inputWebAppUrl" placeholder="https://script.google.com/macros/s/XXXXX/exec"
-                    class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+            <p class="text-xs text-slate-500">อ่านค่าทั้งหมดในเบราว์เซอร์นี้เครื่องเดียว ไม่มีภาพส่งออกไปที่ไหนเลย ตั้งจำนวนหลักตัวเลขให้ตรงกับมิเตอร์จริงของคุณ</p>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-600"><i class="fa-solid fa-faucet-drip text-sky-500 mr-1"></i>จำนวนหลัก (มิเตอร์น้ำ)</label>
+                    <input type="number" id="inputDigitsWater" min="1" max="8"
+                        class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-600"><i class="fa-solid fa-bolt text-amber-500 mr-1"></i>จำนวนหลัก (มิเตอร์ไฟ)</label>
+                    <input type="number" id="inputDigitsElectric" min="1" max="8"
+                        class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+                </div>
             </div>
-            <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-600">Shared Secret</label>
-                <input type="text" id="inputSharedSecret" placeholder="รหัสลับที่ตรงกับ SHARED_SECRET ใน Script Properties"
-                    class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+            <div class="border-t border-slate-200 pt-3 space-y-2">
+                <div class="text-xs font-semibold text-slate-600">ตัวอย่างเลขที่เก็บไว้สำหรับจับคู่ (Template)</div>
+                <div id="coverageWater" class="text-xs"></div>
+                <div id="coverageElectric" class="text-xs"></div>
+                <p class="text-[11px] text-slate-400">ระบบเก็บตัวอย่างเลข 0-9 ให้เองจากทุกครั้งที่กด "ยืนยันค่านี้" ในการ์ดแต่ละใบ ไม่ต้องตั้งค่าเพิ่ม</p>
+                <div class="flex space-x-2 pt-1">
+                    <button onclick="resetTemplates('water')" class="text-xs px-3 py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100">ล้าง Template น้ำ</button>
+                    <button onclick="resetTemplates('electric')" class="text-xs px-3 py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100">ล้าง Template ไฟ</button>
+                </div>
             </div>
             <div class="flex justify-end space-x-2 pt-2">
                 <button onclick="closeSettings()" class="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100">ยกเลิก</button>
@@ -79,7 +93,7 @@
     </div>
 
     <main class="flex-grow max-w-6xl w-full mx-auto px-4 py-7 space-y-7">
-        
+
         <!-- Upload Section -->
         <section class="bg-white rounded-2xl p-6 shadow-sm">
             <div id="dropZone" class="drop-zone rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer text-center">
@@ -124,7 +138,7 @@
                             <tr class="bg-slate-100/90 text-slate-700 text-sm font-semibold border-b border-slate-200">
                                 <th class="px-6 py-3.5">หมายเลขห้อง</th>
                                 <th class="px-6 py-3.5 text-center">ภาพที่ตัด (แนวนอน)</th>
-                                <th class="px-6 py-3.5 text-right">ค่าที่อ่านได้ (OCR)</th>
+                                <th class="px-6 py-3.5 text-right">ค่าที่อ่านได้</th>
                             </tr>
                         </thead>
                         <tbody id="summaryTableBody" class="divide-y divide-slate-200 text-slate-800 text-sm">
@@ -143,6 +157,773 @@
         © MeterOps Pro - ระบบถูกออกแบบให้ปรับระนาบตัวเลขได้ 100%
     </footer>
 
+    <!-- MeterVision: OpenCV.js auto-deskew + auto-crop of the digit window -->
+    <script>
+        const MeterVision = (function () {
+            'use strict';
+
+            function dist(p1, p2) {
+                return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+            }
+
+            function orderQuadPoints(pts) {
+                const byY = pts.slice().sort((a, b) => a.y - b.y);
+                const top = byY.slice(0, 2).sort((a, b) => a.x - b.x);
+                const bottom = byY.slice(2, 4).sort((a, b) => a.x - b.x);
+                const [tl, tr] = top;
+                const [bl, br] = bottom;
+                return [tl, tr, br, bl];
+            }
+
+            function shrinkQuadTowardCenter(quad, pct) {
+                if (!pct) return quad;
+                const cx = quad.reduce((s, p) => s + p.x, 0) / 4;
+                const cy = quad.reduce((s, p) => s + p.y, 0) / 4;
+                return quad.map((p) => ({
+                    x: cx + (p.x - cx) * (1 - pct),
+                    y: cy + (p.y - cy) * (1 - pct),
+                }));
+            }
+
+            function contourToPoints(approxMat) {
+                const pts = [];
+                for (let i = 0; i < approxMat.rows; i++) {
+                    pts.push({ x: approxMat.data32S[i * 2], y: approxMat.data32S[i * 2 + 1] });
+                }
+                return pts;
+            }
+
+            function matToCanvas(mat) {
+                const canvas = document.createElement('canvas');
+                canvas.width = mat.cols;
+                canvas.height = mat.rows;
+                cv.imshow(canvas, mat);
+                return canvas;
+            }
+
+            function warpQuadToCanvas(srcMat, quad) {
+                const [tl, tr, br, bl] = quad;
+                const outW = Math.round(Math.max(dist(tl, tr), dist(bl, br)));
+                const outH = Math.round(Math.max(dist(tl, bl), dist(tr, br)));
+                if (outW < 8 || outH < 8) return null;
+
+                const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                    tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y,
+                ]);
+                const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                    0, 0, outW, 0, outW, outH, 0, outH,
+                ]);
+                const M = cv.getPerspectiveTransform(srcTri, dstTri);
+                const dst = new cv.Mat();
+                try {
+                    cv.warpPerspective(
+                        srcMat, dst, M, new cv.Size(outW, outH),
+                        cv.INTER_CUBIC, cv.BORDER_REPLICATE, new cv.Scalar()
+                    );
+                    return matToCanvas(dst);
+                } finally {
+                    srcTri.delete();
+                    dstTri.delete();
+                    M.delete();
+                    dst.delete();
+                }
+            }
+
+            function rotateMatNoCrop(mat, angleDeg) {
+                const center = new cv.Point(mat.cols / 2, mat.rows / 2);
+                const M = cv.getRotationMatrix2D(center, angleDeg, 1.0);
+                const rad = Math.abs((angleDeg * Math.PI) / 180);
+                const newW = Math.round(mat.cols * Math.cos(rad) + mat.rows * Math.sin(rad));
+                const newH = Math.round(mat.cols * Math.sin(rad) + mat.rows * Math.cos(rad));
+                M.doublePtr(0, 2)[0] += (newW - mat.cols) / 2;
+                M.doublePtr(1, 2)[0] += (newH - mat.rows) / 2;
+                const dst = new cv.Mat();
+                try {
+                    cv.warpAffine(
+                        mat, dst, M, new cv.Size(newW, newH),
+                        cv.INTER_CUBIC, cv.BORDER_REPLICATE, new cv.Scalar()
+                    );
+                    return dst;
+                } finally {
+                    M.delete();
+                }
+            }
+
+            function countDigitLikeChildren(hierarchy, contours, parentIdx, parentArea) {
+                const h = hierarchy.data32S;
+                let child = h[parentIdx * 4 + 2];
+                let count = 0;
+                let guard = 0;
+                while (child !== -1 && guard < 256) {
+                    const childCnt = contours.get(child);
+                    const a = cv.contourArea(childCnt);
+                    childCnt.delete();
+                    const frac = parentArea > 0 ? a / parentArea : 0;
+                    if (frac > 0.01 && frac < 0.35) count++;
+                    child = h[child * 4 + 0];
+                    guard++;
+                }
+                return count;
+            }
+
+            function scoreContoursOnBinary(binMat, imgArea, opts) {
+                const contours = new cv.MatVector();
+                const hierarchy = new cv.Mat();
+                cv.findContours(binMat, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
+
+                let best = null;
+
+                try {
+                    for (let i = 0; i < contours.size(); i++) {
+                        const cnt = contours.get(i);
+                        const area = cv.contourArea(cnt);
+                        const areaFrac = area / imgArea;
+                        if (areaFrac < opts.minAreaFrac || areaFrac > opts.maxAreaFrac) {
+                            cnt.delete();
+                            continue;
+                        }
+
+                        const rect = cv.minAreaRect(cnt);
+                        const rw = Math.max(rect.size.width, rect.size.height);
+                        const rh = Math.min(rect.size.width, rect.size.height);
+                        if (rh < 4) {
+                            cnt.delete();
+                            continue;
+                        }
+                        const aspect = rw / rh;
+                        if (aspect < opts.minAspect || aspect > opts.maxAspect) {
+                            cnt.delete();
+                            continue;
+                        }
+
+                        const rectangularity = area / (rw * rh);
+                        if (rectangularity < opts.minRectangularity) {
+                            cnt.delete();
+                            continue;
+                        }
+
+                        const peri = cv.arcLength(cnt, true);
+                        const approx = new cv.Mat();
+                        cv.approxPolyDP(cnt, approx, 0.03 * peri, true);
+                        const isQuad = approx.rows === 4;
+                        const isConvex = isQuad ? cv.isContourConvex(approx) : false;
+
+                        if (!isQuad || !isConvex) {
+                            approx.delete();
+                            cnt.delete();
+                            continue;
+                        }
+
+                        const childCount = countDigitLikeChildren(hierarchy, contours, i, area);
+                        const aspectIdeal = Math.max(0, 1 - Math.abs(aspect - opts.idealAspect) / 4);
+                        const score =
+                            rectangularity * 1.5 +
+                            (Math.min(childCount, 8) / 8) * 2.5 +
+                            aspectIdeal;
+
+                        if (!best || score > best.score) {
+                            const pts = contourToPoints(approx);
+                            best = {
+                                score,
+                                points: orderQuadPoints(pts),
+                                childCount,
+                                aspect,
+                                rectangularity,
+                            };
+                        }
+                        approx.delete();
+                        cnt.delete();
+                    }
+                } finally {
+                    contours.delete();
+                    hierarchy.delete();
+                }
+                return best;
+            }
+
+            function findDigitWindowQuad(mat, opts) {
+                const gray = new cv.Mat();
+                const eq = new cv.Mat();
+                const blurred = new cv.Mat();
+                let clahe = null;
+                const binaries = [];
+                try {
+                    cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+                    clahe = new cv.CLAHE(3.0, new cv.Size(8, 8));
+                    clahe.apply(gray, eq);
+                    cv.GaussianBlur(eq, blurred, new cv.Size(5, 5), 0);
+
+                    const imgArea = mat.rows * mat.cols;
+
+                    const t1 = new cv.Mat();
+                    cv.threshold(blurred, t1, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                    binaries.push(t1);
+
+                    const t2 = new cv.Mat();
+                    cv.threshold(blurred, t2, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+                    binaries.push(t2);
+
+                    const t3 = new cv.Mat();
+                    cv.adaptiveThreshold(
+                        blurred, t3, 255,
+                        cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV,
+                        31, 10
+                    );
+                    binaries.push(t3);
+
+                    let best = null;
+                    for (const binMat of binaries) {
+                        const scored = scoreContoursOnBinary(binMat, imgArea, opts);
+                        if (scored && (!best || scored.score > best.score)) best = scored;
+                    }
+
+                    if (best && best.score >= opts.minScore) return best;
+                    return null;
+                } finally {
+                    gray.delete();
+                    eq.delete();
+                    blurred.delete();
+                    if (clahe) clahe.delete();
+                    binaries.forEach((m) => m.delete());
+                }
+            }
+
+            function estimateHoughAngle(mat, opts) {
+                const gray = new cv.Mat();
+                const edges = new cv.Mat();
+                const lines = new cv.Mat();
+                try {
+                    cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+                    cv.Canny(gray, edges, 50, 150, 3, false);
+                    cv.HoughLinesP(
+                        edges, lines, 1, Math.PI / 180,
+                        opts.houghThreshold,
+                        mat.cols * opts.houghMinLineLenFrac,
+                        20
+                    );
+
+                    let weightedSum = 0;
+                    let weightTotal = 0;
+                    for (let i = 0; i < lines.rows; i++) {
+                        const x1 = lines.data32S[i * 4];
+                        const y1 = lines.data32S[i * 4 + 1];
+                        const x2 = lines.data32S[i * 4 + 2];
+                        const y2 = lines.data32S[i * 4 + 3];
+                        const dx = x2 - x1;
+                        const dy = y2 - y1;
+                        const len = Math.hypot(dx, dy);
+                        let angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+                        if (angleDeg > 90) angleDeg -= 180;
+                        if (angleDeg < -90) angleDeg += 180;
+                        if (Math.abs(angleDeg) > 45) continue;
+                        weightedSum += angleDeg * len;
+                        weightTotal += len;
+                    }
+
+                    if (weightTotal <= 0) return null;
+                    return weightedSum / weightTotal;
+                } finally {
+                    gray.delete();
+                    edges.delete();
+                    lines.delete();
+                }
+            }
+
+            const DEFAULTS = {
+                maxWorkingDim: 900,
+                marginPct: 0.025,
+                minScore: 1.6,
+                minAreaFrac: 0.01,
+                maxAreaFrac: 0.40,
+                minAspect: 1.3,
+                maxAspect: 6.5,
+                idealAspect: 3.0,
+                minRectangularity: 0.7,
+                houghThreshold: 60,
+                houghMinLineLenFrac: 0.15,
+            };
+
+            function autoDeskewAndCrop(imgElement, options) {
+                const opts = Object.assign({}, DEFAULTS, options || {});
+                let src = null;
+                let working = null;
+
+                try {
+                    src = cv.imread(imgElement);
+                    const scale = Math.min(1, opts.maxWorkingDim / Math.max(src.cols, src.rows));
+                    working = new cv.Mat();
+                    if (scale < 1) {
+                        cv.resize(
+                            src, working,
+                            new cv.Size(Math.round(src.cols * scale), Math.round(src.rows * scale)),
+                            0, 0, cv.INTER_AREA
+                        );
+                    } else {
+                        src.copyTo(working);
+                    }
+
+                    const primary = findDigitWindowQuad(working, opts);
+                    if (primary) {
+                        const fullResQuad = primary.points.map((p) => ({ x: p.x / scale, y: p.y / scale }));
+                        const shrunk = shrinkQuadTowardCenter(fullResQuad, opts.marginPct);
+                        const canvas = warpQuadToCanvas(src, shrunk);
+                        if (canvas) {
+                            return {
+                                success: true,
+                                canvas,
+                                method: 'perspective',
+                                score: primary.score,
+                                quad: shrunk,
+                            };
+                        }
+                    }
+
+                    const angle = estimateHoughAngle(working, opts);
+                    if (angle !== null && Math.abs(angle) > 0.3) {
+                        const rotatedSrc = rotateMatNoCrop(src, angle);
+                        try {
+                            const rotatedWorking = new cv.Mat();
+                            const rScale = Math.min(1, opts.maxWorkingDim / Math.max(rotatedSrc.cols, rotatedSrc.rows));
+                            cv.resize(
+                                rotatedSrc, rotatedWorking,
+                                new cv.Size(
+                                    Math.round(rotatedSrc.cols * rScale),
+                                    Math.round(rotatedSrc.rows * rScale)
+                                ),
+                                0, 0, cv.INTER_AREA
+                            );
+                            let secondary;
+                            try {
+                                secondary = findDigitWindowQuad(rotatedWorking, opts);
+                            } finally {
+                                rotatedWorking.delete();
+                            }
+
+                            if (secondary) {
+                                const fullResQuad = secondary.points.map((p) => ({
+                                    x: p.x / rScale,
+                                    y: p.y / rScale,
+                                }));
+                                const shrunk = shrinkQuadTowardCenter(fullResQuad, opts.marginPct);
+                                const canvas = warpQuadToCanvas(rotatedSrc, shrunk);
+                                if (canvas) {
+                                    return {
+                                        success: true,
+                                        canvas,
+                                        method: 'hough+perspective',
+                                        score: secondary.score,
+                                        angle,
+                                        quad: shrunk,
+                                    };
+                                }
+                            }
+
+                            const partialCanvas = matToCanvas(rotatedSrc);
+                            return {
+                                success: false,
+                                canvas: partialCanvas,
+                                method: 'hough-rotate-only',
+                                angle,
+                                reason: 'digit window not confidently located after angle correction; use manual crop',
+                            };
+                        } finally {
+                            rotatedSrc.delete();
+                        }
+                    }
+
+                    return {
+                        success: false,
+                        canvas: null,
+                        method: 'none',
+                        reason: 'contour and Hough line detection both failed (likely glare/occlusion/low contrast)',
+                    };
+                } catch (err) {
+                    return {
+                        success: false,
+                        canvas: null,
+                        method: 'error',
+                        reason: 'exception during detection: ' + (err && err.message ? err.message : String(err)),
+                    };
+                } finally {
+                    if (src) src.delete();
+                    if (working) working.delete();
+                }
+            }
+
+            return { autoDeskewAndCrop };
+        })();
+    </script>
+
+    <!-- MeterDigitReader: segment the rectified digit window into cells and
+         classify each against a small, self-collected template set -->
+    <script>
+        const MeterDigitReader = (function () {
+            'use strict';
+
+            const CELL_W = 32;
+            const CELL_H = 48;
+            const MAX_SAMPLES_PER_DIGIT = 6;
+            const STORAGE_PREFIX = 'meterops_templates_';
+
+            function canvasFromMat(mat) {
+                const canvas = document.createElement('canvas');
+                canvas.width = mat.cols;
+                canvas.height = mat.rows;
+                cv.imshow(canvas, mat);
+                return canvas;
+            }
+
+            function toCanonicalSize(grayMat) {
+                const resized = new cv.Mat();
+                cv.resize(grayMat, resized, new cv.Size(CELL_W, CELL_H), 0, 0, cv.INTER_AREA);
+                return resized;
+            }
+
+            function loadImageAsGrayMat(dataUrl) {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        canvas.getContext('2d').drawImage(img, 0, 0);
+                        const rgba = cv.imread(canvas);
+                        const gray = new cv.Mat();
+                        cv.cvtColor(rgba, gray, cv.COLOR_RGBA2GRAY);
+                        rgba.delete();
+                        resolve(gray);
+                    };
+                    img.onerror = reject;
+                    img.src = dataUrl;
+                });
+            }
+
+            const TemplateStore = (function () {
+                function safeGet(key) {
+                    try { return localStorage.getItem(key); } catch (e) { return null; }
+                }
+                function safeSet(key, value) {
+                    try { localStorage.setItem(key, value); } catch (e) { /* storage unavailable */ }
+                }
+
+                function loadRaw(meterType) {
+                    const raw = safeGet(STORAGE_PREFIX + meterType);
+                    if (!raw) return {};
+                    try { return JSON.parse(raw); } catch (e) { return {}; }
+                }
+
+                function saveRaw(meterType, data) {
+                    safeSet(STORAGE_PREFIX + meterType, JSON.stringify(data));
+                }
+
+                function addSample(meterType, digitChar, cellCanvas) {
+                    if (!/^[0-9]$/.test(digitChar)) return;
+                    const data = loadRaw(meterType);
+                    if (!data[digitChar]) data[digitChar] = [];
+
+                    const rgba = cv.imread(cellCanvas);
+                    const gray = new cv.Mat();
+                    cv.cvtColor(rgba, gray, cv.COLOR_RGBA2GRAY);
+                    rgba.delete();
+                    const canonical = toCanonicalSize(gray);
+                    gray.delete();
+                    const outCanvas = canvasFromMat(canonical);
+                    canonical.delete();
+
+                    data[digitChar].push(outCanvas.toDataURL('image/png'));
+                    if (data[digitChar].length > MAX_SAMPLES_PER_DIGIT) {
+                        data[digitChar].shift();
+                    }
+                    saveRaw(meterType, data);
+                }
+
+                function getCoverage(meterType) {
+                    const data = loadRaw(meterType);
+                    const coverage = {};
+                    for (let d = 0; d <= 9; d++) coverage[d] = (data[d] || []).length;
+                    return coverage;
+                }
+
+                async function getTemplatesAsMats(meterType) {
+                    const data = loadRaw(meterType);
+                    const result = {};
+                    for (const digit of Object.keys(data)) {
+                        result[digit] = [];
+                        for (const dataUrl of data[digit]) {
+                            const mat = await loadImageAsGrayMat(dataUrl);
+                            result[digit].push(mat);
+                        }
+                    }
+                    return result;
+                }
+
+                function clear(meterType) {
+                    saveRaw(meterType, {});
+                }
+
+                return { addSample, getCoverage, getTemplatesAsMats, clear };
+            })();
+
+            function findInkColumnSpans(binMat) {
+                const colSums = new Int32Array(binMat.cols);
+                for (let x = 0; x < binMat.cols; x++) {
+                    let sum = 0;
+                    for (let y = 0; y < binMat.rows; y++) {
+                        sum += binMat.ucharPtr(y, x)[0] > 0 ? 1 : 0;
+                    }
+                    colSums[x] = sum;
+                }
+
+                const inkThreshold = Math.max(1, Math.round(binMat.rows * 0.06));
+                const bridgeGapPx = Math.max(1, Math.round(binMat.cols * 0.015));
+
+                const rawInk = [];
+                for (let x = 0; x < colSums.length; x++) rawInk.push(colSums[x] >= inkThreshold);
+
+                let gapStart = -1;
+                for (let x = 0; x < rawInk.length; x++) {
+                    if (!rawInk[x] && gapStart === -1) gapStart = x;
+                    if (rawInk[x] && gapStart !== -1) {
+                        if (x - gapStart <= bridgeGapPx) for (let g = gapStart; g < x; g++) rawInk[g] = true;
+                        gapStart = -1;
+                    }
+                }
+
+                const spans = [];
+                let spanStart = -1;
+                for (let x = 0; x < rawInk.length; x++) {
+                    if (rawInk[x] && spanStart === -1) spanStart = x;
+                    if (!rawInk[x] && spanStart !== -1) { spans.push([spanStart, x - 1]); spanStart = -1; }
+                }
+                if (spanStart !== -1) spans.push([spanStart, rawInk.length - 1]);
+
+                const minSpanPx = Math.max(2, Math.round(binMat.cols * 0.04));
+                return spans.filter(([a, b]) => b - a + 1 >= minSpanPx);
+            }
+
+            function cropAndCanonicalize(grayMat, x, y, w, h) {
+                const rect = new cv.Rect(x, y, w, h);
+                const roi = grayMat.roi(rect);
+                const canonical = toCanonicalSize(roi);
+                roi.delete();
+                const cellCanvas = canvasFromMat(canonical);
+                return { canonicalMat: canonical, cellCanvas };
+            }
+
+            function segmentDigitCells(mat, expectedDigits) {
+                const gray = new cv.Mat();
+                cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+                const blurred = new cv.Mat();
+                cv.GaussianBlur(gray, blurred, new cv.Size(3, 3), 0);
+
+                const otsu = new cv.Mat();
+                const otsuInv = new cv.Mat();
+                cv.threshold(blurred, otsu, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                cv.threshold(blurred, otsuInv, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+
+                let spans = findInkColumnSpans(otsu);
+                if (spans.length !== expectedDigits) {
+                    const spansInv = findInkColumnSpans(otsuInv);
+                    if (spansInv.length === expectedDigits) spans = spansInv;
+                }
+
+                const cells = [];
+                const padPx = Math.max(1, Math.round(mat.cols * 0.01));
+
+                if (spans.length === expectedDigits) {
+                    for (const [a, b] of spans) {
+                        const x = Math.max(0, a - padPx);
+                        const w = Math.min(mat.cols - x, (b - a + 1) + padPx * 2);
+                        cells.push(cropAndCanonicalize(gray, x, 0, w, mat.rows));
+                    }
+                } else {
+                    const cellW = mat.cols / expectedDigits;
+                    for (let i = 0; i < expectedDigits; i++) {
+                        const x = Math.round(i * cellW);
+                        const w = Math.round(cellW);
+                        cells.push(cropAndCanonicalize(gray, x, 0, Math.min(w, mat.cols - x), mat.rows));
+                    }
+                }
+
+                otsu.delete(); otsuInv.delete(); blurred.delete(); gray.delete();
+                return cells;
+            }
+
+            function classifyCell(cellMat, templatesByDigit) {
+                let bestDigit = null;
+                let bestScore = -Infinity;
+
+                for (const digit of Object.keys(templatesByDigit)) {
+                    for (const tmpl of templatesByDigit[digit]) {
+                        const result = new cv.Mat();
+                        cv.matchTemplate(cellMat, tmpl, result, cv.TM_CCOEFF_NORMED);
+                        const score = result.data32F[0];
+                        result.delete();
+                        if (score > bestScore) { bestScore = score; bestDigit = digit; }
+                    }
+                }
+
+                if (bestDigit === null) return { digit: null, confidence: 0 };
+                const confidence = Math.max(0, Math.min(1, (bestScore + 1) / 2));
+                return { digit: bestDigit, confidence };
+            }
+
+            async function readMeter(cropCanvas, meterType, expectedDigits) {
+                const mat = cv.imread(cropCanvas);
+                let cells;
+                try {
+                    cells = segmentDigitCells(mat, expectedDigits);
+                } finally {
+                    mat.delete();
+                }
+
+                const templates = await TemplateStore.getTemplatesAsMats(meterType);
+                const hasAnyTemplates = Object.keys(templates).length > 0;
+
+                const perDigit = cells.map(({ canonicalMat, cellCanvas }) => {
+                    const { digit, confidence } = hasAnyTemplates
+                        ? classifyCell(canonicalMat, templates)
+                        : { digit: null, confidence: 0 };
+                    canonicalMat.delete();
+                    return { digit, confidence, cellCanvas };
+                });
+
+                for (const digit of Object.keys(templates)) {
+                    templates[digit].forEach((m) => m.delete());
+                }
+
+                const reading = perDigit.map((d) => d.digit ?? '?').join('');
+                const confidence = perDigit.length
+                    ? Math.min(...perDigit.map((d) => d.confidence))
+                    : 0;
+
+                return { reading, confidence, perDigit };
+            }
+
+            return { readMeter, TemplateStore, CELL_W, CELL_H };
+        })();
+    </script>
+
+    <!-- MeterDigitConfirmUI: per-digit confirm/correct row, feeds corrections
+         back into MeterDigitReader.TemplateStore -->
+    <script>
+        const MeterDigitConfirmUI = (function () {
+            'use strict';
+
+            function confidenceClass(confidence) {
+                if (confidence >= 0.8) return { border: 'border-emerald-400', bg: 'bg-emerald-50', text: 'text-emerald-700' };
+                if (confidence >= 0.5) return { border: 'border-amber-400', bg: 'bg-amber-50', text: 'text-amber-700' };
+                return { border: 'border-red-400', bg: 'bg-red-50', text: 'text-red-700' };
+            }
+
+            function coverageLine(meterType) {
+                const coverage = MeterDigitReader.TemplateStore.getCoverage(meterType);
+                const missing = Object.keys(coverage).filter((d) => coverage[d] === 0);
+                if (missing.length === 0) {
+                    return `<span class="text-emerald-600"><i class="fa-solid fa-circle-check mr-1"></i>เก็บตัวอย่างครบ 0-9 แล้ว</span>`;
+                }
+                return `<span class="text-amber-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i>ยังไม่มีตัวอย่างเลข: ${missing.join(', ')} — พิมพ์เลขที่ถูกต้องด้านล่างเพื่อช่วยเก็บ</span>`;
+            }
+
+            function render(container, readResult, meterType, onConfirm) {
+                container.innerHTML = '';
+
+                const wrap = document.createElement('div');
+                wrap.className = 'space-y-3 p-3 bg-slate-50 border border-slate-200 rounded-xl';
+
+                const title = document.createElement('div');
+                title.className = 'text-xs font-semibold text-slate-600 flex items-center justify-between';
+                title.innerHTML = `<span><i class="fa-solid fa-list-ol mr-1.5"></i>ตรวจสอบทีละหลัก</span>
+                    <span class="text-slate-400 font-normal">รวม ${Math.round(readResult.confidence * 100)}%</span>`;
+                wrap.appendChild(title);
+
+                const cellsRow = document.createElement('div');
+                cellsRow.className = 'flex items-center justify-center space-x-2';
+
+                const inputs = [];
+
+                readResult.perDigit.forEach((cell, i) => {
+                    const cls = confidenceClass(cell.confidence);
+
+                    const cellBox = document.createElement('div');
+                    cellBox.className = `flex flex-col items-center space-y-1 border-2 ${cls.border} ${cls.bg} rounded-lg p-1.5`;
+
+                    const img = document.createElement('img');
+                    img.src = cell.cellCanvas.toDataURL('image/png');
+                    img.className = 'h-10 w-auto rounded bg-white border border-slate-200';
+                    img.alt = `หลักที่ ${i + 1}`;
+
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.inputMode = 'numeric';
+                    input.maxLength = 1;
+                    input.value = cell.digit ?? '';
+                    input.className = `w-9 h-9 text-center font-bold text-lg rounded border ${cls.border} focus:outline-none focus:ring-2 focus:ring-blue-400 ${cls.text}`;
+                    input.dataset.index = String(i);
+
+                    input.addEventListener('input', () => {
+                        input.value = input.value.replace(/[^0-9]/g, '').slice(0, 1);
+                        if (input.value && inputs[i + 1]) inputs[i + 1].focus();
+                    });
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Backspace' && !input.value && inputs[i - 1]) inputs[i - 1].focus();
+                    });
+
+                    const confLabel = document.createElement('span');
+                    confLabel.className = `text-[10px] ${cls.text}`;
+                    confLabel.textContent = `${Math.round(cell.confidence * 100)}%`;
+
+                    cellBox.appendChild(img);
+                    cellBox.appendChild(input);
+                    cellBox.appendChild(confLabel);
+                    cellsRow.appendChild(cellBox);
+                    inputs.push(input);
+                });
+
+                wrap.appendChild(cellsRow);
+
+                const coverage = document.createElement('div');
+                coverage.className = 'text-[11px] text-center';
+                coverage.innerHTML = coverageLine(meterType);
+                wrap.appendChild(coverage);
+
+                const confirmBtn = document.createElement('button');
+                confirmBtn.className = 'w-full text-sm bg-blue-900 hover:bg-blue-800 text-white font-medium py-2 rounded-lg transition-colors';
+                confirmBtn.innerHTML = `<i class="fa-solid fa-check mr-1.5"></i>ยืนยันค่านี้`;
+                confirmBtn.addEventListener('click', () => {
+                    const finalDigits = inputs.map((inp) => inp.value);
+                    if (finalDigits.some((d) => !/^[0-9]$/.test(d))) {
+                        confirmBtn.classList.add('ring-2', 'ring-red-400');
+                        confirmBtn.textContent = 'กรุณากรอกให้ครบทุกหลัก (0-9)';
+                        return;
+                    }
+
+                    readResult.perDigit.forEach((cell, i) => {
+                        MeterDigitReader.TemplateStore.addSample(meterType, finalDigits[i], cell.cellCanvas);
+                    });
+
+                    onConfirm(finalDigits.join(''));
+
+                    coverage.innerHTML = coverageLine(meterType);
+                    confirmBtn.disabled = true;
+                    confirmBtn.classList.remove('bg-blue-900', 'hover:bg-blue-800');
+                    confirmBtn.classList.add('bg-emerald-600');
+                    confirmBtn.innerHTML = `<i class="fa-solid fa-circle-check mr-1.5"></i>บันทึกแล้ว`;
+                });
+                wrap.appendChild(confirmBtn);
+
+                container.appendChild(wrap);
+
+                const weakestIndex = readResult.perDigit.reduce(
+                    (worst, cell, i) => (cell.confidence < readResult.perDigit[worst].confidence ? i : worst), 0
+                );
+                if (inputs[weakestIndex]) inputs[weakestIndex].focus();
+            }
+
+            return { render };
+        })();
+    </script>
+
     <!-- App Logic -->
     <script>
         const dropZone = document.getElementById('dropZone');
@@ -156,33 +937,71 @@
         const records = {};
         const croppers = {};
 
-        // Cloud Vision backend config (persisted in this browser only, when storage is available)
         function safeGetStorage(key) {
             try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
         }
         function safeSetStorage(key, value) {
             try { localStorage.setItem(key, value); } catch (e) { /* storage disabled, keep in-memory only */ }
         }
-        let VISION_WEBAPP_URL = safeGetStorage('meterops_vision_url');
-        let VISION_SHARED_SECRET = safeGetStorage('meterops_vision_secret');
+
+        // --- OpenCV.js readiness gate: everything else can load immediately,
+        // but MeterVision/MeterDigitReader must not touch `cv` until the WASM
+        // runtime has actually finished initializing. ---
+        let cvReady = false;
+        const pendingAutoDetect = [];
+        (function waitForCv() {
+            if (window.cv && cv.Mat) {
+                cvReady = true;
+                pendingAutoDetect.splice(0).forEach((cardId) => runAutoDetect(cardId));
+            } else {
+                setTimeout(waitForCv, 200);
+            }
+        })();
+
+        // --- Settings: expected digit count per meter type ---
+        function getExpectedDigits(meterType) {
+            const key = meterType === 'water' ? 'meterops_digits_water' : 'meterops_digits_electric';
+            const stored = parseInt(safeGetStorage(key), 10);
+            if (stored >= 1 && stored <= 8) return stored;
+            return meterType === 'water' ? 4 : 5;
+        }
 
         const settingsBtn = document.getElementById('settingsBtn');
         const settingsModal = document.getElementById('settingsModal');
         settingsBtn.addEventListener('click', openSettings);
 
         function openSettings() {
-            document.getElementById('inputWebAppUrl').value = VISION_WEBAPP_URL;
-            document.getElementById('inputSharedSecret').value = VISION_SHARED_SECRET;
+            document.getElementById('inputDigitsWater').value = getExpectedDigits('water');
+            document.getElementById('inputDigitsElectric').value = getExpectedDigits('electric');
+            refreshCoverageDisplay();
             settingsModal.classList.remove('hidden');
         }
         window.closeSettings = function() { settingsModal.classList.add('hidden'); };
         window.saveSettings = function() {
-            VISION_WEBAPP_URL = document.getElementById('inputWebAppUrl').value.trim();
-            VISION_SHARED_SECRET = document.getElementById('inputSharedSecret').value.trim();
-            safeSetStorage('meterops_vision_url', VISION_WEBAPP_URL);
-            safeSetStorage('meterops_vision_secret', VISION_SHARED_SECRET);
+            const w = parseInt(document.getElementById('inputDigitsWater').value, 10);
+            const e = parseInt(document.getElementById('inputDigitsElectric').value, 10);
+            if (w >= 1 && w <= 8) safeSetStorage('meterops_digits_water', String(w));
+            if (e >= 1 && e <= 8) safeSetStorage('meterops_digits_electric', String(e));
             closeSettings();
         };
+        window.resetTemplates = function(meterType) {
+            const label = meterType === 'water' ? 'น้ำ' : 'ไฟ';
+            if (confirm(`ล้าง Template ที่เก็บไว้ทั้งหมดของมิเตอร์${label}?`)) {
+                MeterDigitReader.TemplateStore.clear(meterType);
+                refreshCoverageDisplay();
+            }
+        };
+        function refreshCoverageDisplay() {
+            ['water', 'electric'].forEach((type) => {
+                const coverage = MeterDigitReader.TemplateStore.getCoverage(type);
+                const missing = Object.keys(coverage).filter((d) => coverage[d] === 0);
+                const label = type === 'water' ? 'น้ำ' : 'ไฟ';
+                const el = document.getElementById(type === 'water' ? 'coverageWater' : 'coverageElectric');
+                el.innerHTML = missing.length === 0
+                    ? `<span class="text-emerald-600">${label}: ครบ 0-9 แล้ว</span>`
+                    : `<span class="text-amber-600">${label}: ยังขาด ${missing.join(', ')}</span>`;
+            });
+        }
 
         // Drag & Drop Handlers
         dropZone.addEventListener('click', () => fileInput.click());
@@ -216,30 +1035,104 @@
             const isWater = fileName.includes('water') || fileName.includes('น้ำ') || (!fileName.includes('elec') && index % 2 !== 0);
             const meterTypeTitle = isWater ? `มิเตอร์น้ำ` : `มิเตอร์ไฟฟ้า`;
 
-            // บันทึกโครงสร้างข้อมูลเริ่มต้น
             records[cardId] = { room: initialRoom, reading: "", imageSrc: "", isWater: isWater, meterType: isWater ? 'water' : 'electric' };
 
-            // สร้าง UI ของการ์ด
             createCardUI(cardId, meterTypeTitle, initialRoom, file.name);
 
-            // โหลดภาพและตั้งค่า Cropper
             const rawDataUrl = await readFileAsDataURL(file);
             const imgElement = document.getElementById(`img-${cardId}`);
+            imgElement.onload = () => {
+                if (cvReady) {
+                    runAutoDetect(cardId);
+                } else {
+                    const spinnerText = document.getElementById(`spinner-text-${cardId}`);
+                    if (spinnerText) spinnerText.textContent = 'กำลังโหลดเอนจินตรวจจับ...';
+                    pendingAutoDetect.push(cardId);
+                }
+            };
             imgElement.src = rawDataUrl;
-            
-            initCropper(cardId, isWater);
         }
 
-        function initCropper(cardId, isWater) {
+        // --- Step 1: try full auto-detect (deskew + crop to the digit window) ---
+        function runAutoDetect(cardId) {
             const imgElement = document.getElementById(`img-${cardId}`);
-            
+            if (!imgElement) return; // card was cleared while waiting for cv
+
+            const spinnerText = document.getElementById(`spinner-text-${cardId}`);
+            if (spinnerText) spinnerText.textContent = 'กำลังตรวจจับกรอบตัวเลข...';
+
+            let auto;
+            try {
+                auto = MeterVision.autoDeskewAndCrop(imgElement, {});
+            } catch (err) {
+                console.error(err);
+                auto = { success: false, canvas: null, method: 'error', reason: String(err) };
+            }
+
+            const spinner = document.getElementById(`spinner-${cardId}`);
+            if (spinner) spinner.classList.add('hidden');
+
+            if (auto.success) {
+                showAutoPreview(cardId, auto);
+                runDigitPipeline(cardId, auto.canvas);
+            } else if (auto.canvas) {
+                showManualCropper(cardId, imgElement, auto.canvas.toDataURL('image/jpeg', 0.95),
+                    'ปรับมุมภาพให้แล้วบางส่วน แต่หากรอบตัวเลขอัตโนมัติไม่เจอ กรุณาครอบตัดเอง');
+            } else {
+                showManualCropper(cardId, imgElement, null,
+                    'ตรวจจับกรอบตัวเลขอัตโนมัติไม่สำเร็จ กรุณาครอบตัดเอง');
+            }
+        }
+
+        function showAutoPreview(cardId, auto) {
+            const previewImg = document.getElementById(`auto-preview-${cardId}`);
+            const badge = document.getElementById(`auto-badge-${cardId}`);
+            const badgeText = document.getElementById(`auto-badge-text-${cardId}`);
+            const rawImg = document.getElementById(`img-${cardId}`);
+
+            previewImg.src = auto.canvas.toDataURL('image/jpeg', 0.92);
+            previewImg.classList.remove('hidden');
+            badge.classList.remove('hidden');
+            const methodLabel = auto.method === 'perspective' ? 'ตรวจพบอัตโนมัติ' : 'ตรวจพบหลังปรับมุม';
+            badgeText.textContent = `${methodLabel} · คะแนนกรอบ ${auto.score ? auto.score.toFixed(1) : '-'}`;
+            rawImg.classList.add('hidden');
+        }
+
+        // Lets the user override an auto-detected crop they don't trust.
+        window.switchToManual = function(cardId) {
+            const imgElement = document.getElementById(`img-${cardId}`);
+            document.getElementById(`auto-preview-${cardId}`).classList.add('hidden');
+            document.getElementById(`auto-badge-${cardId}`).classList.add('hidden');
+            imgElement.classList.remove('hidden');
+            showManualCropper(cardId, imgElement, null, 'ครอบตัดกรอบตัวเลขเอง');
+        };
+
+        function showManualCropper(cardId, imgElement, replacementSrc, reasonText) {
+            const tools = document.getElementById(`manual-tools-${cardId}`);
+            tools.classList.remove('hidden');
+            document.getElementById(`manual-reason-${cardId}`).textContent = reasonText || '';
+            imgElement.classList.remove('hidden');
+
+            if (croppers[cardId]) return; // already initialized once (e.g. user hit "ครอบตัดเอง")
+
+            if (replacementSrc) {
+                imgElement.onload = () => initCropper(cardId);
+                imgElement.src = replacementSrc;
+            } else {
+                initCropper(cardId);
+            }
+        }
+
+        // --- Manual fallback: Cropper.js, unchanged UX from earlier versions ---
+        function initCropper(cardId) {
+            const imgElement = document.getElementById(`img-${cardId}`);
+
             const cropper = new Cropper(imgElement, {
                 viewMode: 1,
                 dragMode: 'move',
                 autoCropArea: 0.5,
                 background: true,
                 ready: function () {
-                    // กำหนดขนาดกรอบครอปเริ่มต้นให้เป็นแนวนอน
                     const containerData = cropper.getContainerData();
                     const cropW = containerData.width * 0.45;
                     const cropH = cropW * 0.35;
@@ -250,82 +1143,65 @@
                         height: cropH
                     });
 
-                    // ซ่อนสถานะ Loading
-                    document.getElementById(`spinner-${cardId}`).classList.add('hidden');
-                    
-                    // อ่านค่าครั้งแรก
-                    runOCRAndUpdate(cardId);
+                    const spinner = document.getElementById(`spinner-${cardId}`);
+                    if (spinner) spinner.classList.add('hidden');
+
+                    runDigitPipeline(cardId, cropper.getCroppedCanvas({ width: 600 }));
                 }
             });
 
             croppers[cardId] = cropper;
 
-            // เชื่อมแถบสไลเดอร์หมุนภาพ
             const slider = document.getElementById(`slider-${cardId}`);
             slider.addEventListener('input', (e) => {
                 const degree = parseInt(e.target.value);
                 cropper.rotateTo(degree);
                 document.getElementById(`deg-${cardId}`).innerText = `${degree}°`;
             });
-            
-            // อ่านค่า OCR ใหม่เมื่อปล่อยเมาส์จากแถบสไลเดอร์ หรือเมื่อปรับขนาดกรอบแดงเสร็จ
-            slider.addEventListener('change', () => runOCRAndUpdate(cardId));
-            imgElement.addEventListener('cropend', () => runOCRAndUpdate(cardId));
+
+            slider.addEventListener('change', () => runDigitPipeline(cardId, cropper.getCroppedCanvas({ width: 600 })));
+            imgElement.addEventListener('cropend', () => runDigitPipeline(cardId, cropper.getCroppedCanvas({ width: 600 })));
         }
 
-        async function runOCRAndUpdate(cardId) {
-            const cropper = croppers[cardId];
-            if (!cropper) return;
-
+        // --- Step 2: segment + classify digits, then hand off to the confirm UI ---
+        async function runDigitPipeline(cardId, canvas) {
+            if (!canvas || !records[cardId]) return;
             const statusBadge = document.getElementById(`status-badge-${cardId}`);
+            statusBadge.innerHTML = `<span class="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full"><i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังอ่านค่า...</span>`;
 
-            if (!VISION_WEBAPP_URL) {
-                statusBadge.innerHTML = `<span class="text-xs text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full"><i class="fa-solid fa-gear mr-1"></i> ยังไม่ได้ตั้งค่า Backend</span>`;
-                return;
-            }
+            const meterType = records[cardId].meterType;
+            const expectedDigits = getExpectedDigits(meterType);
+            records[cardId].imageSrc = canvas.toDataURL('image/jpeg', 0.9);
 
-            statusBadge.innerHTML = `<span class="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full"><i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังอ่าน OCR...</span>`;
-
-            // ดึงภาพที่ถูกครอปและหมุนแล้ว ส่งตรงไป Cloud Vision (ไม่ต้อง deskew/threshold เพิ่มฝั่ง client)
-            const croppedCanvas = cropper.getCroppedCanvas({
-                width: 600,
-                imageSmoothingEnabled: true,
-                imageSmoothingQuality: 'high',
-            });
-
-            const processedImageURL = croppedCanvas.toDataURL('image/jpeg', 0.9);
-            records[cardId].imageSrc = processedImageURL;
-
+            let result;
             try {
-                const response = await fetch(VISION_WEBAPP_URL, {
-                    method: 'POST',
-                    // text/plain กัน CORS preflight เพราะ Apps Script Web App ตอบ OPTIONS ไม่ได้
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({
-                        token: VISION_SHARED_SECRET,
-                        imageBase64: processedImageURL,
-                        room: records[cardId].room,
-                        meterType: records[cardId].meterType,
-                    }),
-                });
-
-                const result = await response.json();
-                if (!result.ok) throw new Error(result.error || 'OCR failed');
-
-                records[cardId].reading = result.reading;
-                records[cardId].confidence = result.confidence;
-                document.getElementById(`reading-${cardId}`).value = result.reading;
-
-                const confPct = Math.round((result.confidence || 0) * 100);
-                const badgeClass = confPct >= 80 ? 'text-emerald-700 bg-emerald-100' : 'text-amber-700 bg-amber-100';
-                const badgeIcon = confPct >= 80 ? 'fa-circle-check' : 'fa-triangle-exclamation';
-                statusBadge.innerHTML = `<span class="text-xs ${badgeClass} px-2 py-0.5 rounded-full"><i class="fa-solid ${badgeIcon} mr-1"></i> ${confPct}%</span>`;
-
-                renderSummaryTable();
+                result = await MeterDigitReader.readMeter(canvas, meterType, expectedDigits);
             } catch (err) {
                 console.error(err);
                 statusBadge.innerHTML = `<span class="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ผิดพลาด</span>`;
+                return;
             }
+
+            records[cardId].reading = result.reading;
+            const readingInput = document.getElementById(`reading-${cardId}`);
+            if (readingInput) readingInput.value = result.reading;
+
+            const confPct = Math.round((result.confidence || 0) * 100);
+            const badgeClass = confPct >= 80 ? 'text-emerald-700 bg-emerald-100' : 'text-amber-700 bg-amber-100';
+            const badgeIcon = confPct >= 80 ? 'fa-circle-check' : 'fa-triangle-exclamation';
+            statusBadge.innerHTML = `<span class="text-xs ${badgeClass} px-2 py-0.5 rounded-full"><i class="fa-solid ${badgeIcon} mr-1"></i> ${confPct}%</span>`;
+
+            const confirmContainer = document.getElementById(`digit-confirm-${cardId}`);
+            if (confirmContainer) {
+                MeterDigitConfirmUI.render(confirmContainer, result, meterType, (finalReading) => {
+                    if (!records[cardId]) return;
+                    records[cardId].reading = finalReading;
+                    if (readingInput) readingInput.value = finalReading;
+                    renderSummaryTable();
+                });
+            }
+
+            renderSummaryTable();
         }
 
         function createCardUI(cardId, title, initialRoom, fileName) {
@@ -340,18 +1216,24 @@
                     </div>
                     <div id="status-badge-${cardId}"></div>
                 </div>
-                
-                <!-- พื้นที่จัดการภาพ (Cropper) -->
+
+                <!-- พื้นที่จัดการภาพ: preview อัตโนมัติ หรือ Cropper มือ (fallback) -->
                 <div class="relative h-[250px] bg-slate-900 w-full overflow-hidden">
                     <div id="spinner-${cardId}" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 z-10 text-slate-500">
                         <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-2 text-blue-600"></i>
-                        <span class="text-xs">กำลังเตรียมภาพ...</span>
+                        <span class="text-xs" id="spinner-text-${cardId}">กำลังเตรียมภาพ...</span>
+                    </div>
+                    <img id="auto-preview-${cardId}" src="" class="hidden absolute inset-0 w-full h-full object-contain">
+                    <div id="auto-badge-${cardId}" class="hidden absolute bottom-0 inset-x-0 bg-slate-900/70 px-3 py-1.5 flex items-center justify-between text-[11px] text-white z-20">
+                        <span id="auto-badge-text-${cardId}"></span>
+                        <button onclick="switchToManual('${cardId}')" class="underline hover:text-blue-300">ครอบตัดเอง</button>
                     </div>
                     <img id="img-${cardId}" src="" class="block max-w-full">
                 </div>
 
-                <!-- เครื่องมือควบคุมองศาภาพ -->
-                <div class="p-4 bg-white border-t border-slate-200 space-y-3">
+                <!-- เครื่องมือครอบตัด/หมุนภาพเอง (แสดงเฉพาะตอน fallback) -->
+                <div id="manual-tools-${cardId}" class="hidden p-4 bg-white border-t border-slate-200 space-y-2">
+                    <div id="manual-reason-${cardId}" class="text-[11px] text-amber-600"></div>
                     <div class="flex items-center justify-between text-xs text-slate-600 font-medium">
                         <label><i class="fa-solid fa-rotate mr-1"></i> เลื่อนเพื่อปรับระนาบตัวเลขให้ตรง</label>
                         <span id="deg-${cardId}" class="text-blue-600 font-bold bg-blue-50 px-2 rounded">0°</span>
@@ -359,10 +1241,13 @@
                     <input type="range" id="slider-${cardId}" min="-180" max="180" value="0" class="w-full">
                 </div>
 
-                <!-- ผลลัพธ์ OCR -->
+                <!-- ยืนยัน/แก้เลขทีละหลัก -->
+                <div id="digit-confirm-${cardId}" class="px-4 pt-3"></div>
+
+                <!-- ค่าสุดท้าย -->
                 <div class="p-4 bg-slate-50 border-t border-slate-200 space-y-2">
                     <div class="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1">
-                        <span>ข้อมูลที่อ่านได้ (เฉพาะในกรอบแดง)</span>
+                        <span>ค่าสุดท้าย</span>
                     </div>
                     <div class="flex space-x-3">
                         <div class="flex-1 bg-white rounded-lg p-2 border border-slate-200 shadow-sm flex items-center justify-between">
@@ -426,7 +1311,7 @@
         window.exportCSV = function() {
             const keys = Object.keys(records);
             if (keys.length === 0) return alert('ไม่มีข้อมูล');
-            let csvContent = "\uFEFFหมายเลขห้อง,ค่าที่อ่านได้\n";
+            let csvContent = "﻿หมายเลขห้อง,ค่าที่อ่านได้\n";
             keys.forEach(k => { csvContent += `"${records[k].room}","${records[k].reading}"\n`; });
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
